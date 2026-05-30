@@ -316,6 +316,41 @@ function App() {
                                 <p key={paragraph}>{paragraph}</p>
                               ))}
                             </div>
+                            {lesson.table && (
+                              <div className="overflow-x-auto rounded-2xl border border-navy/12">
+                                <table className="w-full text-sm">
+                                  <thead>
+                                    <tr className="border-b border-navy/12 bg-sand/60">
+                                      {lesson.table.headers.map((header) => (
+                                        <th
+                                          key={header}
+                                          className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-[0.18em] text-bronze"
+                                        >
+                                          {header}
+                                        </th>
+                                      ))}
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {lesson.table.rows.map((row, rowIndex) => (
+                                      <tr
+                                        key={rowIndex}
+                                        className="border-b border-navy/8 last:border-0 odd:bg-canvas/40 even:bg-sand/20 transition-colors hover:bg-teal/5"
+                                      >
+                                        {row.map((cell, cellIndex) => (
+                                          <td
+                                            key={cellIndex}
+                                            className={`px-4 py-2.5 leading-6 text-ink/84 ${cellIndex === 0 ? "font-semibold text-bronze/90 font-mono text-xs" : ""} ${cellIndex === 1 ? "font-mono text-xs text-ink" : ""}`}
+                                          >
+                                            {cell}
+                                          </td>
+                                        ))}
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>

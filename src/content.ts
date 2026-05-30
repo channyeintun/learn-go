@@ -19,6 +19,10 @@ export type LearningSection = {
   lessons: {
     title: string;
     paragraphs: string[];
+    table?: {
+      headers: string[];
+      rows: string[][];
+    };
   }[];
   pitfalls: string[];
   snippetTitle: string;
@@ -248,6 +252,9 @@ fmt.Println(value)`,
       "This module covers the operator rules people trip over first: precedence, type conversions, enum-style constants with iota, string and rune handling, and Go's compact control flow.",
     topics: [
       "arithmetic, comparison, logical, bitwise, shift, and assignment operators",
+      "Go's five precedence levels: unary (highest), then */% <<>> & &^, then +-|^, then == != < <= > >=, then &&, then || (lowest)",
+      "why * and & share a level and how that affects pointer expressions",
+      "bitwise operators (&, |, ^, &^) and how they interact with comparison operators",
       "operator precedence, explicit parentheses, and why mixed expressions should stay readable",
       "typed enum patterns with iota and conversion helpers like strconv.Atoi and strconv.Itoa",
       "counted loops, while-style loops, infinite loops, continue and break",
@@ -265,6 +272,39 @@ fmt.Println(value)`,
         ],
       },
       {
+        title: "Go's operator precedence levels in detail",
+        paragraphs: [
+          "Go defines five binary operator precedence levels, listed below from highest to lowest. Unary operators (+, -, !, ^, *, &, <-) are not listed here because they always bind tighter than any binary operator and are applied right to left.",
+          "The most common surprise is that bitwise AND (&) sits at level 5 — the same level as * and / — while comparison operators like == and != sit at level 3. That means x & mask == 0 is parsed as x & (mask == 0), which compares a bool to an integer and does not compile. You almost always need parentheses: (x & mask) == 0.",
+          "Shift operators (<< and >>) also share level 5 with multiplication, so 1 << 3 + 1 parses as 1 << (3+1) = 16, not 9. The bit-clear operator &^ is unique to Go: it clears bits in the left operand that are set in the right. Add parentheses any time you mix levels to remove ambiguity for readers.",
+        ],
+        table: {
+          headers: ["Level", "Operators", "Binds tighter than", "Common trap"],
+          rows: [
+            [
+              "5 (highest)",
+              "*  /  %  <<  >>  &  &^",
+              "everything below",
+              "& and << share this level — (x & mask) == 0, not x & mask == 0",
+            ],
+            [
+              "4",
+              "+  -  |  ^",
+              "comparisons, &&, ||",
+              "| and ^ here, not at level 5 — easy to mix with &",
+            ],
+            [
+              "3",
+              "==  !=  <  <=  >  >=",
+              "&&  ||",
+              "x & mask == 0 is x & (mask==0) — wrap bitwise first",
+            ],
+            ["2", "&&", "||", "a || b && c means a || (b && c) — && always wins over ||"],
+            ["1 (lowest)", "||", "nothing", "lowest of all binary ops — always evaluated last"],
+          ],
+        },
+      },
+      {
         title: "Strings and runes are different views of text",
         paragraphs: [
           "A string is a read-only byte sequence. That is why `len` reports bytes, slicing works at byte offsets, and invalid UTF-8 is still representable. When you care about Unicode code points, iterate with `range` or convert to `[]rune` deliberately.",
@@ -275,6 +315,9 @@ fmt.Println(value)`,
     pitfalls: [
       "assuming `len(text)` means character count instead of byte count",
       "using iota without a named type and ending up with weakly described constants",
+      "writing `x & mask == 0` expecting bitwise-and-then-compare, but getting a type error because `==` binds before `&` in many minds but after it in Go — always write `(x & mask) == 0`",
+      "mixing `&&` and `||` in a single expression without parentheses and relying on precedence the reader has to look up",
+      "writing `1 << n + 1` expecting `(1 << n) + 1` but getting `1 << (n + 1)` because `+` has higher precedence than `<<` at the same level ... actually they share level 5 — just use parentheses",
       "compressing precedence-heavy expressions until the meaning is no longer obvious",
     ],
     snippetTitle: "Enums, conversion, and rune iteration",
@@ -305,13 +348,98 @@ default:
 }`,
     examples: [
       {
-        title: "Precedence made explicit",
+        title: "Precedence table in practice",
         summary:
-          "The language has precedence rules, but readable Go still favors temporary names or parentheses when the meaning matters.",
-        snippet: `subtotal := left + right
-scaled := subtotal * factor
+          "Go's five binary precedence levels from highest (5) to lowest (1). Unary operators are always tighter. Parentheses make intent explicit regardless of level.",
+        snippet: `// Level 5 (highest binary): * / % << >> & &^
+// Level 4:                    + - | ^
+// Level 3:                    == != < <= > >=
+// Level 2:                    &&
+// Level 1 (lowest binary):    ||
 
-allowed := (flags&(1<<readyBit) != 0) && retries < 3
+// * binds tighter than +
+result := 2 + 3*4           // 14, not 20
+
+// & (level 5) binds tighter than == (level 3)
+// WRONG reading: x & (mask == 0)  — type error
+// CORRECT:       (x & mask) == 0
+const mask = 0b0111
+x := 0b1010
+fmt.Println((x & mask) == 0) // false
+
+// && (level 2) binds tighter than || (level 1)
+// a || b && c  ==  a || (b && c)
+a, b, c := true, false, true
+fmt.Println(a || b && c) // true: b&&c evaluated first
+
+// << shares level 5 with *; + is level 4 (lower!)
+// 1 << 3 + 1  ==  1 << (3+1)  ==  16, not 9
+fmt.Println(1 << (3 + 1)) // 16
+fmt.Println((1 << 3) + 1) // 9 — use parens to get this`,
+      },
+      {
+        title: "Precedence traps and their fixes",
+        summary:
+          "The most common Go precedence bugs come from bitwise operators mixing with comparisons and from forgetting that shift lives at the same level as multiplication.",
+        snippet: `flags := 0b1100
+readyBit := 2
+
+// TRAP: & has higher precedence than !=
+// flags & readyBit != 0 parses as flags & (readyBit != 0)
+// 'readyBit != 0' is bool — cannot use & on bool — compile error
+
+// FIX: parenthesise the bitwise sub-expression first
+isReady := (flags & (1 << readyBit)) != 0
+fmt.Println(isReady) // true
+
+// TRAP: mixed && and || without parentheses
+// err != nil || retries > 3 && !done
+// reads as: err != nil || (retries > 3 && !done)
+
+// FIX: make grouping explicit regardless of precedence rules
+err := error(nil)
+retries := 5
+done := false
+shouldAbort := (err != nil) || (retries > 3 && !done)
+fmt.Println(shouldAbort) // true
+
+// TRAP: unary minus on a multiplication
+// -x * y  is  (-x) * y  — unary binds tightest
+// safe here, but -x/y and -(x/y) can differ for negative x
+neg := -6
+fmt.Println(-neg * 2)  // 12
+fmt.Println(-(neg * 2)) // 12 — same here but always be explicit`,
+      },
+      {
+        title: "Bit-clear operator &^",
+        summary:
+          "The &^ operator (bit-clear / AND NOT) clears bits in the left operand that are set in the right operand. It lives at the same precedence level as & and *.",
+        snippet: `permissions := 0b1111 // all four bits set
+writeBit := 0b0010
+
+// Clear the write bit
+permissions = permissions &^ writeBit
+fmt.Printf("%04b\n", permissions) // 1101
+
+// Mix with | to set another bit atomically
+executeBit := 0b0001
+updated := (permissions &^ writeBit) | executeBit
+fmt.Printf("%04b\n", updated) // 1101 -> clear write, keep execute`,
+      },
+      {
+        title: "Precedence made explicit with named steps",
+        summary:
+          "When an expression mixes multiple precedence levels, splitting it into named variables beats adding parentheses alone — it also documents intent.",
+        snippet: `subtotal := left + right       // level 4 addition first
+scaled := subtotal * factor    // level 5 multiplication
+
+// Instead of:
+// allowed := (flags&(1<<readyBit) != 0) && retries < 3
+
+// Prefer named steps:
+bitSet := (flags & (1 << readyBit)) != 0
+underLimit := retries < 3
+allowed := bitSet && underLimit
 
 fmt.Println(scaled, allowed)`,
       },
