@@ -1,4 +1,5 @@
 import { defineConfig } from "vite-plus";
+import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 
 // https://vite.dev/config/
@@ -7,6 +8,19 @@ export default defineConfig({
     "*": "vp check --fix",
   },
   fmt: {},
+  build: {
+    rolldownOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("react-syntax-highlighter") || id.includes("prismjs")) {
+            return "syntax-highlighter";
+          }
+
+          return undefined;
+        },
+      },
+    },
+  },
   lint: {
     plugins: ["oxc", "typescript", "unicorn", "react"],
     categories: {
@@ -129,5 +143,5 @@ export default defineConfig({
       "vite-plus/prefer-vite-plus-imports": "error",
     },
   },
-  plugins: [react()],
+  plugins: [tailwindcss(), react()],
 });
