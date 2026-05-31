@@ -2,39 +2,29 @@
 @import "tailwindcss";
 
 :root {
-  --color-canvas: #f7f5ef;
-  --color-ink: #15202b;
-  --color-sand: #ffffff;
-  --color-bronze: #8a3f16;
-  --color-teal: #166a63;
-  --color-navy: #15202b;
-  --color-surface: rgba(255, 255, 255, 0.78);
-  --color-border-subtle: rgba(21, 32, 43, 0.12);
-  --color-muted-bg: rgba(138, 63, 22, 0.05);
-  --color-muted-border: rgba(138, 63, 22, 0.18);
-  --color-primary-bg: #18252f;
-  --color-primary-text: #f7f5ef;
-  --color-primary-hover: #21313d;
-  --shadow-card: 0 18px 40px rgba(16, 33, 43, 0.06);
-  --shadow-button: 0 14px 30px rgba(21, 32, 43, 0.12);
+  --color-canvas: #f4f1e8;
+  --color-ink: #17202a;
+  --color-paper: #fffdf7;
+  --color-surface: rgba(255, 253, 247, 0.92);
+  --color-line: rgba(23, 32, 42, 0.14);
+  --color-accent: #176b5f;
+  --color-warning: #b94024;
+  --color-purple: #5d3f9f;
+  --color-gold: #b76e1e;
+  --shadow-card: 0 16px 36px rgba(23, 32, 42, 0.08);
 }
 
 :root[data-theme="dark"] {
-  --color-canvas: #0d1317;
-  --color-ink: #e7eeea;
-  --color-sand: #121b20;
-  --color-bronze: #d9a17c;
-  --color-teal: #7dcfc5;
-  --color-navy: #dbe6e1;
-  --color-surface: rgba(18, 27, 32, 0.92);
-  --color-border-subtle: rgba(231, 238, 234, 0.12);
-  --color-muted-bg: rgba(225, 154, 113, 0.08);
-  --color-muted-border: rgba(225, 154, 113, 0.18);
-  --color-primary-bg: #7dcfc5;
-  --color-primary-text: #0d1317;
-  --color-primary-hover: #96d9d1;
-  --shadow-card: 0 18px 40px rgba(0, 0, 0, 0.22);
-  --shadow-button: 0 14px 30px rgba(0, 0, 0, 0.25);
+  --color-canvas: #101417;
+  --color-ink: #edf2ee;
+  --color-paper: #171d21;
+  --color-surface: rgba(23, 29, 33, 0.94);
+  --color-line: rgba(237, 242, 238, 0.16);
+  --color-accent: #80cfc0;
+  --color-warning: #ff9b7f;
+  --color-purple: #b7a6ff;
+  --color-gold: #f0bb6d;
+  --shadow-card: 0 16px 36px rgba(0, 0, 0, 0.28);
 }
 
 @theme {
@@ -43,12 +33,13 @@
   --font-mono: "IBM Plex Mono", monospace;
   --color-canvas: var(--color-canvas);
   --color-ink: var(--color-ink);
-  --color-sand: var(--color-sand);
-  --color-bronze: var(--color-bronze);
-  --color-teal: var(--color-teal);
-  --color-navy: var(--color-navy);
+  --color-paper: var(--color-paper);
   --color-surface: var(--color-surface);
-  --color-border-subtle: var(--color-border-subtle);
+  --color-line: var(--color-line);
+  --color-accent: var(--color-accent);
+  --color-warning: var(--color-warning);
+  --color-purple: var(--color-purple);
+  --color-gold: var(--color-gold);
 }
 
 @layer base {
@@ -59,7 +50,7 @@
   body {
     margin: 0;
     min-width: 320px;
-    background-color: var(--color-canvas);
+    background: var(--color-canvas);
     color: var(--color-ink);
     font-family: var(--font-sans);
     font-size: 17px;
@@ -67,9 +58,6 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    transition:
-      background-color 0.3s ease,
-      color 0.3s ease;
   }
 
   * {
@@ -82,15 +70,17 @@
   }
 
   a:focus-visible,
-  button:focus-visible {
-    outline: 3px solid rgba(22, 106, 99, 0.34);
+  button:focus-visible,
+  summary:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--color-accent) 34%, transparent);
     outline-offset: 3px;
   }
 
   h1,
   h2,
   h3,
-  h4 {
+  h4,
+  h5 {
     line-height: 1.12;
   }
 
@@ -104,303 +94,254 @@
     font-family: var(--font-mono);
   }
 
-  ::selection {
-    background: rgba(138, 63, 22, 0.22);
+  section,
+  article[id] {
+    scroll-margin-top: 5.5rem;
   }
 
   #root {
     min-height: 100svh;
   }
-
-  section,
-  article[id] {
-    scroll-margin-top: 5.5rem;
-  }
-}
-
-@keyframes flowPulse {
-  0% {
-    transform: translate(-15%, -50%) scale(0.92);
-    opacity: 0;
-  }
-
-  18% {
-    opacity: 1;
-  }
-
-  100% {
-    transform: translate(calc(100% + 0.8rem), -50%) scale(1.02);
-    opacity: 0;
-  }
 }
 
 @layer components {
   .site-shell {
-    background:
-      radial-gradient(circle at top left, rgba(138, 63, 22, 0.05), transparent 28%),
-      radial-gradient(circle at bottom right, rgba(22, 106, 99, 0.05), transparent 26%),
-      var(--color-canvas);
+    background: var(--color-canvas);
     color-scheme: light;
-    transition:
-      background-color 0.3s ease,
-      color 0.3s ease;
   }
 
-  .site-shell[data-theme="dark"] {
-    background:
-      radial-gradient(circle at top left, rgba(217, 161, 124, 0.06), transparent 24%),
-      radial-gradient(circle at bottom right, rgba(125, 207, 197, 0.05), transparent 22%),
-      var(--color-canvas);
+  :root[data-theme="dark"] .site-shell {
     color-scheme: dark;
   }
 
   .site-header {
-    border-color: var(--color-border-subtle);
-    background: color-mix(in srgb, var(--color-canvas) 85%, transparent);
-    transition: all 0.3s ease;
+    border-color: var(--color-line);
+    background: color-mix(in srgb, var(--color-canvas) 90%, transparent);
+    backdrop-filter: blur(16px);
   }
 
+  .hero-grid {
+    display: grid;
+    gap: 2rem;
+  }
+
+  .content-grid {
+    display: grid;
+    gap: 2rem;
+  }
+
+  .toc-panel {
+    display: none;
+  }
+
+  .course-map,
   .surface-card,
-  .diagram-card,
-  .secondary-button {
-    border-color: var(--color-border-subtle);
+  .module-card,
+  .lesson-card,
+  .diagram-frame {
+    border-color: var(--color-line);
     background: var(--color-surface);
     box-shadow: var(--shadow-card);
-    transition: all 0.3s ease;
   }
 
-  .muted-card {
-    background: var(--color-muted-bg);
-    border-color: var(--color-muted-border);
-    transition: all 0.3s ease;
+  .course-map {
+    border: 1px solid var(--color-line);
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    border-top: 1px solid var(--color-line);
+    border-bottom: 1px solid var(--color-line);
+    padding: 1rem 0;
+  }
+
+  .primary-button,
+  .secondary-button,
+  .theme-toggle-btn {
+    border-radius: 999px;
+    border: 1px solid var(--color-line);
+    font-size: 0.875rem;
+    font-weight: 700;
+    line-height: 1;
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease,
+      border-color 0.2s ease;
+  }
+
+  .primary-button,
+  .secondary-button {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    padding: 0 1rem;
   }
 
   .primary-button {
-    border: 1px solid var(--color-border-subtle);
-    background: var(--color-primary-bg);
-    color: var(--color-primary-text);
-    box-shadow: var(--shadow-button);
-    transition: all 0.3s ease;
+    background: var(--color-ink);
+    color: var(--color-canvas);
   }
 
   .primary-button:hover {
-    background: var(--color-primary-hover);
+    background: var(--color-accent);
+    color: #08110f;
   }
 
-  .secondary-button {
-    border: 1px solid var(--color-border-subtle);
-    color: var(--color-ink);
-  }
-
-  .secondary-button:hover {
-    background: rgba(255, 255, 255, 0.08);
-  }
-
-  .diagram-card {
-    position: relative;
-    background:
-      radial-gradient(circle at top right, rgba(125, 207, 197, 0.08), transparent 32%),
-      var(--color-surface);
-  }
-
-  /* Sleek Theme Switcher Button */
+  .secondary-button,
   .theme-toggle-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 2.5rem;
-    height: 2.5rem;
-    border-radius: 999px;
-    border: 1px solid var(--color-border-subtle);
     background: var(--color-surface);
     color: var(--color-ink);
-    cursor: pointer;
-    box-shadow: var(--shadow-card);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
-    overflow: hidden;
   }
 
+  .secondary-button:hover,
   .theme-toggle-btn:hover {
-    transform: scale(1.05);
-    border-color: var(--color-teal);
-    color: var(--color-teal);
+    border-color: var(--color-accent);
+    color: var(--color-accent);
   }
 
-  .theme-toggle-icon-wrapper {
-    position: relative;
-    width: 1.25rem;
-    height: 1.25rem;
+  .theme-toggle-btn {
+    min-width: 4rem;
+    min-height: 2.25rem;
+    padding: 0 0.85rem;
+    cursor: pointer;
   }
 
-  .theme-icon {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 1.25rem;
-    height: 1.25rem;
-    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  .eyebrow {
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-accent);
   }
 
-  /* In light theme, hide moon and show sun */
-  :root .theme-icon-sun {
-    opacity: 1;
-    transform: rotate(0deg) scale(1);
-  }
-  :root .theme-icon-moon {
-    opacity: 0;
-    transform: rotate(90deg) scale(0);
-  }
-
-  /* In dark theme, show moon and hide sun */
-  :root[data-theme="dark"] .theme-icon-sun {
-    opacity: 0;
-    transform: rotate(-90deg) scale(0);
-  }
-  :root[data-theme="dark"] .theme-icon-moon {
-    opacity: 1;
-    transform: rotate(0deg) scale(1);
+  .level-pill,
+  .term-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.75rem;
+    border: 1px solid var(--color-line);
+    border-radius: 999px;
+    padding: 0 0.65rem;
+    background: color-mix(in srgb, var(--color-paper) 72%, transparent);
+    color: var(--color-ink);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
   }
 
-  /* Interactive SVG Diagrams Keyframe Animations */
-
-  /* 1. Channel Handoff Particle Flow Animation */
-  @keyframes handoffFlow {
-    0% {
-      transform: translate(190px, 0px);
-      opacity: 0;
-    }
-    10% {
-      opacity: 1;
-    }
-    45% {
-      transform: translate(0px, 0px); /* Reaches chan */
-    }
-    55% {
-      transform: translate(0px, 0px); /* Rendezvous delay */
-    }
-    90% {
-      transform: translate(-190px, 0px); /* Reaches receiver */
-      opacity: 1;
-    }
-    100% {
-      transform: translate(-190px, 0px);
-      opacity: 0;
-    }
+  .term-chip {
+    min-height: 1.9rem;
+    letter-spacing: 0;
+    text-transform: none;
   }
 
-  .handoff-particle-group {
-    animation: handoffFlow 4.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-    transform-origin: center;
+  .part-section {
+    border-top: 1px solid var(--color-line);
+    padding-top: 2rem;
   }
 
-  /* 2. Cancellation Tree Pulse Animation */
-  @keyframes cancelPulse {
-    to {
-      stroke-dashoffset: -20;
-    }
+  .part-heading {
+    margin-bottom: 1.5rem;
+    max-width: 48rem;
   }
 
-  .cancel-pulse-line {
-    stroke-dasharray: 6 6;
-    animation: cancelPulse 1.5s linear infinite;
+  .module-card {
+    display: grid;
+    gap: 1.5rem;
+    border: 1px solid var(--color-line);
+    border-radius: 0.75rem;
+    padding: 1.25rem;
   }
 
-  /* 3. Radial Cancellation Ring Expansion Animation */
-  @keyframes ringExpand {
-    0% {
-      r: 10px;
-      opacity: 1;
-      stroke-width: 3px;
-    }
-    70% {
-      opacity: 0.6;
-    }
-    100% {
-      r: 220px;
-      opacity: 0;
-      stroke-width: 0.5px;
-    }
+  .module-meta {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
   }
 
-  .cancel-ring {
-    animation: ringExpand 5s cubic-bezier(0.1, 0.8, 0.3, 1) infinite;
-    transform-origin: 120px 120px;
+  .module-lists,
+  .lesson-support-grid,
+  .glossary-grid {
+    display: grid;
+    gap: 1rem;
   }
 
-  .cancel-ring-delayed {
-    animation: ringExpand 5s cubic-bezier(0.1, 0.8, 0.3, 1) infinite 2.5s;
-    transform-origin: 120px 120px;
+  .lesson-card {
+    display: grid;
+    gap: 1.25rem;
+    border: 1px solid var(--color-line);
+    border-radius: 0.75rem;
+    padding: 1.1rem;
+    background: color-mix(in srgb, var(--color-paper) 86%, var(--color-surface));
   }
 
-  /* 4. Worker Rect Color Sync with Cancellation */
-  @keyframes workerRectAnim {
-    0%,
-    45% {
-      fill: var(--color-sand);
-      stroke: rgba(22, 106, 99, 0.25);
-    }
-    55%,
-    100% {
-      fill: var(--color-sand);
-      stroke: rgba(138, 63, 22, 0.35);
-      opacity: 0.85;
+  .diagram-frame {
+    overflow: hidden;
+    border: 1px solid var(--color-line);
+    border-radius: 0.75rem;
+  }
+
+  .diagram-frame img {
+    display: block;
+    width: 100%;
+    max-height: min(70svh, 46rem);
+    object-fit: contain;
+    background: #f6f0e4;
+  }
+
+  .diagram-frame-featured img {
+    max-height: 44rem;
+  }
+
+  .diagram-frame figcaption {
+    border-top: 1px solid var(--color-line);
+    padding: 1rem;
+  }
+
+  @media (min-width: 640px) {
+    .stats-grid,
+    .module-lists,
+    .lesson-support-grid,
+    .glossary-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
 
-  .worker-rect {
-    animation: workerRectAnim 5s ease-in-out infinite;
-    transition:
-      fill 0.3s ease,
-      stroke 0.3s ease;
-  }
-
-  /* 5. Worker Status Text Fading Transitions */
-  @keyframes workerStatusRunning {
-    0%,
-    45% {
-      opacity: 1;
+  @media (min-width: 1024px) {
+    .hero-grid {
+      grid-template-columns: minmax(0, 1fr) 20rem;
+      align-items: start;
     }
-    55%,
-    100% {
-      opacity: 0;
-    }
-  }
 
-  @keyframes workerStatusCancelled {
-    0%,
-    45% {
-      opacity: 0;
+    .content-grid {
+      grid-template-columns: 15rem minmax(0, 1fr);
     }
-    55%,
-    100% {
-      opacity: 1;
+
+    .toc-panel {
+      display: block;
     }
-  }
 
-  .worker-status-running {
-    animation: workerStatusRunning 5s ease-in-out infinite;
-  }
-
-  .worker-status-cancelled {
-    animation: workerStatusCancelled 5s ease-in-out infinite;
-  }
-
-  /* 6. Worker Glowing Dot Sync with Cancellation */
-  @keyframes workerDotAnim {
-    0%,
-    45% {
-      fill: var(--color-teal);
-      filter: drop-shadow(0 0 3px var(--color-teal));
+    .module-card {
+      padding: 1.5rem;
     }
-    55%,
-    100% {
-      fill: var(--color-bronze);
-      filter: none;
-    }
-  }
 
-  .worker-dot {
-    animation: workerDotAnim 5s ease-in-out infinite;
+    .lesson-card {
+      padding: 1.25rem;
+    }
+
+    .lesson-support-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .glossary-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
   }
 }
