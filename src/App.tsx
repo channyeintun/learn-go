@@ -43,7 +43,6 @@ const diagramSources: Record<string, string> = {
   "iterator-yield": iteratorYield,
   "map-iteration": mapIteration,
   "operator-precedence": operatorPrecedence,
-  "pass-pointer": explicitPointer,
   "reader-writer": readerWriter,
   "scheduler-mpg": schedulerMpg,
   "slice-header": sliceHeader,

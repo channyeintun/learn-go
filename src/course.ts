@@ -266,9 +266,10 @@ export const courseModules: CourseModule[] = [
     outcomes: [
       "Recognize executable versus library packages",
       "Use exported and unexported names deliberately",
+      "Explain why unused local variables and imports are compile-time errors",
       "Run the daily Go command loop",
     ],
-    glossaryIds: ["package", "exported-name", "zero-value"],
+    glossaryIds: ["package", "exported-name", "unused-code-error", "zero-value"],
     lessons: [
       {
         id: "file-anatomy",
@@ -280,6 +281,7 @@ export const courseModules: CourseModule[] = [
             paragraphs: [
               "A Go source file starts with one package clause. That package boundary is the first design decision: it controls visibility, ownership, and how other code imports the file.",
               "Imports and declarations come next. Uppercase names are exported from the package; lowercase names stay package-local. There is no `private` keyword, so naming is part of the API.",
+              "Go also keeps files honest by rejecting unused imports and unused local variables at compile time. These are errors, not warnings. The rule keeps code from accumulating dead dependencies and half-finished local state.",
             ],
           },
         ],
@@ -299,16 +301,52 @@ func main() {
     fmt.Println(message, build)
 }`,
           },
+          {
+            title: "Unused local variables and imports fail compilation",
+            summary:
+              "Go requires local variables and imports to be used. Delete them or make intentional ignores explicit.",
+            code: `package main
+
+import (
+    "fmt"
+    "strings" // compile error: imported and not used
+)
+
+func main() {
+    message := "hello"
+    unused := 42 // compile error: declared and not used
+
+    fmt.Println(message)
+}`,
+          },
+          {
+            title: "Intentional ignore uses the blank identifier",
+            summary: "`_` says the unused result is deliberate.",
+            code: `value, _ := strconv.Atoi("42")
+fmt.Println(value)
+
+// Better when the error matters:
+value, err := strconv.Atoi("42")
+if err != nil {
+    return err
+}`,
+          },
         ],
         mistakes: [
           "Creating Java-style package hierarchies before responsibilities are clear",
           "Exporting names before callers need them",
           "Hand-formatting code instead of letting `gofmt` settle layout",
+          "Leaving unused imports or local variables and expecting only a warning",
+          "Using `_` to hide an error that should be handled",
         ],
         checks: [
           {
             question: "What makes a Go name exported from a package?",
             answer: "The identifier starts with an uppercase letter.",
+          },
+          {
+            question: "Are unused imports and unused local variables warnings in Go?",
+            answer: "No. They are compilation errors.",
           },
         ],
         exercises: [
@@ -671,7 +709,7 @@ fmt.Println(count) // 0, the zero value for int`,
         id: "explicit-pointers",
         title: "Explicit Pointers: Address, Dereference, Nil, and Mutation",
         teachingGoal: "Understand pointer variables as ordinary values that store addresses.",
-        diagramIds: ["explicit-pointer", "pass-pointer"],
+        diagramIds: ["explicit-pointer"],
         explanation: [
           {
             title: "The two operators",
@@ -1610,6 +1648,12 @@ export const glossary: GlossaryTerm[] = [
     definition: "A package for operations outside Go's ordinary type and memory guarantees.",
   },
   {
+    id: "unused-code-error",
+    term: "Unused code error",
+    definition:
+      "Go rejects unused imports and unused local variables during compilation instead of treating them as warnings.",
+  },
+  {
     id: "writer",
     term: "Writer",
     definition: "An interface for streaming bytes to a destination.",
@@ -1635,6 +1679,15 @@ export const cheatSheet: CheatSheetItem[] = [
 
 func main() {
     fmt.Println("hello")
+}`,
+  },
+  {
+    title: "Unused names",
+    note: "Unused imports and unused local variables are compilation errors, not warnings.",
+    code: `import "strings" // error if unused
+
+func main() {
+    unused := 42 // error if unused
 }`,
   },
   {
