@@ -151,6 +151,15 @@ export const diagrams: DiagramAsset[] = [
       "The diagram shows a slice header on the stack containing ptr, len, and cap, with an arrow to heap or array storage containing elements.",
   },
   {
+    id: "map-iteration",
+    title: "Go Map Iteration Order",
+    alt: "Hand-drawn diagram showing a Go map header pointing to hash buckets, range producing different valid orders, and sorted keys producing deterministic output.",
+    caption:
+      "Map iteration order is unspecified. Collect and sort keys before iterating when stable output matters.",
+    transcript:
+      "The diagram shows a map header pointing to hash buckets. Two range loops can produce key value pairs in different orders. The stable recipe is to collect keys, sort keys with slices.Sort, then index the map in sorted key order.",
+  },
+  {
     id: "explicit-pointer",
     title: "Explicit Pointer",
     alt: "Hand-drawn diagram showing p as a pointer variable with its own address storing the address of n, and star p dereferencing to mutate n.",
@@ -174,6 +183,15 @@ export const diagrams: DiagramAsset[] = [
     caption: "An interface value carries a dynamic type and dynamic value.",
     transcript:
       "The diagram shows interface value slots for type and value. A nil concrete pointer inside an interface can make the interface itself non-nil.",
+  },
+  {
+    id: "iterator-yield",
+    title: "Go Iterators and the Yield Pattern",
+    alt: "Hand-drawn diagram showing Go range-over-function iterator forms, a push iterator calling yield, a for range loop receiving values, and notes that yield is a callback parameter name, not a keyword.",
+    caption:
+      "Range-over-function iterators use a callback pattern commonly named `yield`; `yield` is a parameter name, not a Go keyword.",
+    transcript:
+      "The diagram lists the three function shapes accepted by range-over-function, shows Count calling yield with values 0, 1, and 2, and explains that yield returns false after a break so the iterator must stop.",
   },
   {
     id: "error-chain",
@@ -215,6 +233,15 @@ export const diagrams: DiagramAsset[] = [
       "The runtime schedules goroutines across Ps and Ms, parking blocked work and running ready work.",
     transcript:
       "The diagram shows G goroutines queued on P processors, with M operating system threads executing them and a netpoller waking blocked goroutines.",
+  },
+  {
+    id: "goroutine-stacks",
+    title: "Goroutine Stacks and OS Thread Stacks",
+    alt: "Hand-drawn comparison of small growable goroutine stacks against larger platform-dependent OS thread stacks.",
+    caption:
+      "Goroutines start with small growable stacks managed by the Go runtime; OS thread stacks are much larger platform-dependent reservations.",
+    transcript:
+      "The diagram compares goroutine stacks with a runtime minimum of 2 KB and adaptive starting size against OS thread stacks commonly measured in megabytes, and warns that goroutines still require memory, scheduling, and cleanup.",
   },
   {
     id: "struct-padding",
@@ -496,11 +523,19 @@ for index, r := range text {
     prerequisites: ["Modules 01-02"],
     outcomes: [
       "Explain array values versus slice headers",
-      "Use maps and structs with clear ownership",
+      "Use maps without relying on iteration order",
+      "Use structs with clear ownership",
       "Read and write pointer code with `&` and `*`",
       "Explain why slices, maps, and channels are reference-like built-ins",
     ],
-    glossaryIds: ["pointer", "address", "slice-header", "backing-array", "nil"],
+    glossaryIds: [
+      "pointer",
+      "address",
+      "slice-header",
+      "backing-array",
+      "map-iteration-order",
+      "nil",
+    ],
     lessons: [
       {
         id: "slice-ownership",
@@ -544,6 +579,91 @@ safe[1] = "fiber"`,
             prompt:
               "Write a small program where mutating a sub-slice changes the original slice, then fix it with `slices.Clone`.",
             goal: "Make slice ownership visible.",
+          },
+        ],
+      },
+      {
+        id: "map-iteration-order",
+        title: "Maps: Missing Keys, Ownership, and Unspecified Iteration Order",
+        teachingGoal:
+          "Use maps as fast key/value storage without accidentally depending on bucket iteration order.",
+        diagramIds: ["map-iteration"],
+        explanation: [
+          {
+            title: "Map order is not part of the contract",
+            paragraphs: [
+              "A Go map is a reference-like handle to runtime hash-table storage. It is excellent for lookup, insertion, deletion, and membership checks, but it is not an ordered collection.",
+              "When you write `for k, v := range m`, the order is intentionally unspecified. It can vary between iterations, between runs, after map growth or deletion, and across Go versions. Treat any observed order as an implementation detail.",
+            ],
+          },
+          {
+            title: "Sort keys when order matters",
+            paragraphs: [
+              "Stable output is a separate step: collect the keys, sort them, and then index the map in that sorted key order. This is common for CLI output, tests, documentation examples, and deterministic serialization outside `encoding/json`.",
+              "Also remember the zero-value lookup rule: reading a missing key returns the value type's zero value. Use the comma-ok form when missing and present-with-zero are different states.",
+            ],
+          },
+        ],
+        snippets: [
+          {
+            title: "Map iteration order is unspecified",
+            summary: "Do not write tests or program logic that assumes this loop order.",
+            code: `scores := map[string]int{
+    "go":    1,
+    "map":   2,
+    "range": 3,
+}
+
+for key, value := range scores {
+    fmt.Println(key, value)
+}`,
+          },
+          {
+            title: "Stable map output",
+            summary: "Collect, sort, then index the map.",
+            code: `keys := make([]string, 0, len(scores))
+for key := range scores {
+    keys = append(keys, key)
+}
+
+slices.Sort(keys)
+
+for _, key := range keys {
+    fmt.Println(key, scores[key])
+}`,
+          },
+          {
+            title: "Missing key versus zero value",
+            summary: "Use comma-ok when zero is a valid stored value.",
+            code: `count, ok := scores["missing"]
+if !ok {
+    fmt.Println("no score")
+}
+fmt.Println(count) // 0, the zero value for int`,
+          },
+        ],
+        mistakes: [
+          "Assuming map range order is random but stable enough for tests",
+          "Rendering map output directly when deterministic order matters",
+          "Confusing a missing key with a present key whose value is the zero value",
+          "Sharing a map across goroutines without synchronization",
+        ],
+        checks: [
+          {
+            question: "Can Go code rely on the order produced by `for range` over a map?",
+            answer: "No. The order is unspecified and can vary.",
+          },
+          {
+            question: "What is the standard recipe for deterministic map output?",
+            answer: "Collect keys, sort the keys, then index the map in sorted key order.",
+          },
+        ],
+        exercises: [
+          {
+            title: "Make map output deterministic",
+            prompt:
+              "Write a program that prints a `map[string]int` twice, then change it to print keys in sorted order.",
+            goal: "Separate hash-table storage from ordered presentation.",
           },
         ],
       },
@@ -647,8 +767,16 @@ if p == nil {
       "Choose value or pointer receivers deliberately",
       "Define interfaces at the consumer boundary",
       "Use generics for reusable algorithms and containers",
+      "Explain range-over-function iterators and the yield callback pattern",
     ],
-    glossaryIds: ["receiver", "method-set", "interface-value", "type-parameter"],
+    glossaryIds: [
+      "receiver",
+      "method-set",
+      "interface-value",
+      "type-parameter",
+      "iterator",
+      "yield-pattern",
+    ],
     lessons: [
       {
         id: "interfaces",
@@ -705,6 +833,83 @@ func Expired(clock Clock, deadline time.Time) bool {
             prompt:
               "Given a function that needs only `Read`, accept `io.Reader` instead of a concrete file.",
             goal: "Practice depending on behavior instead of implementation.",
+          },
+        ],
+      },
+      {
+        id: "iterators-and-yield",
+        title: "Iterators and the Yield Pattern",
+        teachingGoal:
+          "Understand Go range-over-function iterators and why `yield` is a callback convention, not a keyword.",
+        diagramIds: ["iterator-yield"],
+        explanation: [
+          {
+            title: "Range over a function",
+            paragraphs: [
+              "Go 1.23 added range-over-function iterators. A `for range` loop can range over a function when that function has one of the accepted shapes: it receives a callback that takes zero, one, or two values and returns `bool`.",
+              "The callback is commonly named `yield`, so people often describe this as the yield pattern. That name is a convention, not a reserved word. You could name the parameter differently, but `yield` communicates the iterator contract clearly.",
+            ],
+          },
+          {
+            title: "What the bool means",
+            paragraphs: [
+              "The iterator calls `yield` for each value it wants to provide to the loop. If the loop stops early with `break`, `yield` returns false, and the iterator function must stop calling it.",
+              "The standard `iter` package names the common shapes `iter.Seq[V]` and `iter.Seq2[K, V]`. These are push iterators: the iterator pushes values into the loop by calling the callback.",
+            ],
+          },
+        ],
+        snippets: [
+          {
+            title: "Push iterator function",
+            summary: "The iterator calls `yield`; the loop receives each value.",
+            code: `func Count(yield func(int) bool) {
+    for i := range 3 {
+        if !yield(i) {
+            return
+        }
+    }
+}
+
+for value := range Count {
+    fmt.Println(value)
+}`,
+          },
+          {
+            title: "Named iterator type",
+            summary: "`iter.Seq` is the standard one-value iterator shape.",
+            code: `func CountTo(n int) iter.Seq[int] {
+    return func(yield func(int) bool) {
+        for i := range n {
+            if !yield(i) {
+                return
+            }
+        }
+    }
+}`,
+          },
+        ],
+        mistakes: [
+          "Calling `yield` a Go keyword",
+          "Continuing to call `yield` after it returns false",
+          "Using an iterator where a plain slice or map loop would be clearer",
+          "Assuming any arbitrary function can appear on the right side of `range`",
+        ],
+        checks: [
+          {
+            question: "Is `yield` a reserved Go keyword?",
+            answer: "No. It is a conventional callback parameter name used by iterator functions.",
+          },
+          {
+            question: "What must an iterator do when `yield` returns false?",
+            answer: "Stop iteration and return.",
+          },
+        ],
+        exercises: [
+          {
+            title: "Stop on break",
+            prompt:
+              "Write an iterator that prints a cleanup message when a loop breaks early after `yield` returns false.",
+            goal: "Practice the iterator contract instead of treating yield as syntax magic.",
           },
         ],
       },
@@ -1034,10 +1239,17 @@ case <-time.After(500 * time.Millisecond):
     prerequisites: ["Modules 01-08"],
     outcomes: [
       "Explain the M:P:G scheduler model",
+      "Compare goroutine stack behavior with OS thread stack reservations",
       "Use benchmarks, pprof, and trace before optimizing",
       "Recognize layout, padding, and cache-line concerns",
     ],
-    glossaryIds: ["scheduler", "escape-analysis", "cache-line"],
+    glossaryIds: [
+      "scheduler",
+      "goroutine-stack",
+      "os-thread-stack",
+      "escape-analysis",
+      "cache-line",
+    ],
     lessons: [
       {
         id: "runtime-model",
@@ -1088,6 +1300,73 @@ fmt.Println(unsafe.Sizeof(BadLayout{}), unsafe.Sizeof(BetterLayout{}))`,
             title: "Benchmark a clone",
             prompt: "Write a benchmark that reports allocations while cloning a byte slice.",
             goal: "Attach performance decisions to measured allocation behavior.",
+          },
+        ],
+      },
+      {
+        id: "goroutine-stack-economics",
+        title: "Goroutine Stack Economics",
+        teachingGoal:
+          "Understand why goroutines are much cheaper than OS threads without treating them as free.",
+        diagramIds: ["goroutine-stacks"],
+        explanation: [
+          {
+            title: "Small, growable stacks",
+            paragraphs: [
+              "A goroutine starts with a small stack managed by the Go runtime. The runtime source defines a 2 KB minimum stack, and modern Go can use an adaptive starting stack size based on recent stack usage. When a goroutine needs more stack space, the runtime grows the stack by allocating a larger one and copying frames.",
+              "That is very different from an OS thread stack, which is a platform-dependent reservation commonly measured in megabytes, often around 1 MB to 8 MB by default depending on the operating system, runtime, and thread attributes.",
+            ],
+          },
+          {
+            title: "Cheap does not mean free",
+            paragraphs: [
+              "This stack model is one reason Go can support many goroutines, but each goroutine still costs memory, scheduler work, and lifetime management. A leaked goroutine is still a leaked resource.",
+              "The practical lesson is not to replace every loop with goroutines. Launch goroutines when work can overlap meaningfully and when you can explain how they stop.",
+            ],
+          },
+        ],
+        snippets: [
+          {
+            title: "Goroutines still need a stop path",
+            summary: "Small stacks do not remove the need for cancellation and ownership.",
+            code: `func worker(ctx context.Context, jobs <-chan Job) error {
+    for {
+        select {
+        case <-ctx.Done():
+            return ctx.Err()
+        case job, ok := <-jobs:
+            if !ok {
+                return nil
+            }
+            process(job)
+        }
+    }
+}`,
+          },
+        ],
+        mistakes: [
+          "Saying goroutines are free because their stacks are small",
+          "Forgetting that stack sizes are runtime and platform details, not API contracts",
+          "Comparing goroutines to OS threads only by memory and ignoring scheduling and shutdown",
+        ],
+        checks: [
+          {
+            question:
+              "What is the runtime minimum goroutine stack size commonly cited from Go source?",
+            answer: "2 KB, with modern adaptive starting behavior layered on top.",
+          },
+          {
+            question: "Why are OS thread stacks usually more expensive?",
+            answer:
+              "They are platform-dependent stack reservations commonly measured in megabytes.",
+          },
+        ],
+        exercises: [
+          {
+            title: "Find a leak",
+            prompt:
+              "Write a goroutine that blocks forever on a channel, then add context cancellation so it can exit.",
+            goal: "Connect goroutine cheapness with explicit lifetime control.",
           },
         ],
       },
@@ -1230,6 +1509,12 @@ export const glossary: GlossaryTerm[] = [
     definition: "A lightweight function execution managed by the Go runtime.",
   },
   {
+    id: "goroutine-stack",
+    term: "Goroutine stack",
+    definition:
+      "A small growable stack managed by the Go runtime, with a 2 KB runtime minimum and adaptive starting behavior in modern Go.",
+  },
+  {
     id: "goroutine-leak",
     term: "Goroutine leak",
     definition: "A goroutine that remains blocked or running after its work no longer matters.",
@@ -1240,9 +1525,21 @@ export const glossary: GlossaryTerm[] = [
     definition: "A runtime pair of dynamic type and dynamic value.",
   },
   {
+    id: "iterator",
+    term: "Iterator",
+    definition:
+      "A rangeable function shape that pushes zero, one, or two values through a callback.",
+  },
+  {
     id: "method-set",
     term: "Method set",
     definition: "The methods available on a type or pointer to that type.",
+  },
+  {
+    id: "map-iteration-order",
+    term: "Map iteration order",
+    definition:
+      "The unspecified order produced when ranging over a map; collect and sort keys when order matters.",
   },
   {
     id: "module",
@@ -1263,6 +1560,11 @@ export const glossary: GlossaryTerm[] = [
     id: "operator-precedence",
     term: "Operator precedence",
     definition: "The fixed order that decides which operators bind first in an expression.",
+  },
+  {
+    id: "os-thread-stack",
+    term: "OS thread stack",
+    definition: "A platform-dependent thread stack reservation commonly measured in megabytes.",
   },
   { id: "package", term: "Package", definition: "A named unit of Go code and visibility." },
   {
@@ -1313,6 +1615,12 @@ export const glossary: GlossaryTerm[] = [
     definition: "An interface for streaming bytes to a destination.",
   },
   {
+    id: "yield-pattern",
+    term: "Yield pattern",
+    definition:
+      "The common iterator callback convention where an iterator calls a function usually named `yield` and stops when it returns false.",
+  },
+  {
     id: "zero-value",
     term: "Zero value",
     definition: "The default usable value Go gives a variable when no explicit value is provided.",
@@ -1341,6 +1649,34 @@ p := &n
     note: "Copying a slice copies a header, not the backing array.",
     code: `copyOfHeader := items
 safeCopy := slices.Clone(items)`,
+  },
+  {
+    title: "Map order",
+    note: "Map iteration order is unspecified. Sort keys when stable output matters.",
+    code: `keys := make([]string, 0, len(scores))
+for key := range scores {
+    keys = append(keys, key)
+}
+slices.Sort(keys)`,
+  },
+  {
+    title: "Iterator yield pattern",
+    note: "`yield` is a callback parameter convention, not a keyword.",
+    code: `func Count(yield func(int) bool) {
+    for i := range 3 {
+        if !yield(i) {
+            return
+        }
+    }
+}`,
+  },
+  {
+    title: "Goroutine stacks",
+    note: "Goroutines use small growable stacks; OS thread stacks are platform-dependent MB-scale reservations.",
+    code: `go worker(ctx, jobs)
+
+// Cheap does not mean free:
+// always know how the goroutine stops.`,
   },
   {
     title: "Errors",

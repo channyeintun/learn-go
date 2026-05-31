@@ -5,8 +5,11 @@ import oneDark from "react-syntax-highlighter/dist/esm/styles/prism/one-dark";
 import channelRendezvous from "./assets/diagrams/channel-rendezvous.png";
 import contextTree from "./assets/diagrams/context-tree.png";
 import errorChain from "./assets/diagrams/error-chain.png";
+import goroutineStacks from "./assets/diagrams/goroutine-stacks.png";
 import explicitPointer from "./assets/diagrams/explicit-pointer.png";
 import interfaceValue from "./assets/diagrams/interface-value.png";
+import iteratorYield from "./assets/diagrams/iterator-yield.png";
+import mapIteration from "./assets/diagrams/map-iteration.png";
 import operatorPrecedence from "./assets/diagrams/operator-precedence.png";
 import readerWriter from "./assets/diagrams/reader-writer.png";
 import schedulerMpg from "./assets/diagrams/scheduler-mpg.png";
@@ -34,8 +37,11 @@ const diagramSources: Record<string, string> = {
   "channel-rendezvous": channelRendezvous,
   "context-tree": contextTree,
   "error-chain": errorChain,
+  "goroutine-stacks": goroutineStacks,
   "explicit-pointer": explicitPointer,
   "interface-value": interfaceValue,
+  "iterator-yield": iteratorYield,
+  "map-iteration": mapIteration,
   "operator-precedence": operatorPrecedence,
   "pass-pointer": explicitPointer,
   "reader-writer": readerWriter,
