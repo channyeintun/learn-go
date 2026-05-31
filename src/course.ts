@@ -17,6 +17,7 @@ export type CodeExample = {
   summary: string;
   code: string;
   complete?: boolean;
+  minGoVersion?: string;
 };
 
 export type CheckQuestion = {
@@ -73,6 +74,13 @@ export type CheatSheetItem = {
   title: string;
   note: string;
   code: string;
+  minGoVersion?: string;
+};
+
+export const courseMeta = {
+  targetGoVersion: "Go 1.23+",
+  targetGoVersionDetail:
+    "The core course targets Go 1.23 or newer. Snippets that depend on a newer language feature show their minimum Go version.",
 };
 
 export const courseParts: CoursePart[] = [
@@ -166,15 +174,6 @@ export const diagrams: DiagramAsset[] = [
     caption: "A pointer stores an address. Dereferencing follows that address to the value.",
     transcript:
       "The diagram shows n equals 42 at address 0x1000 and p at address 0x2000 storing 0x1000. The ampersand operator gets n's address, and star p reaches the value.",
-  },
-  {
-    id: "pass-pointer",
-    title: "Pass by Value and Pointer Values",
-    alt: "Hand-drawn comparison of passing an int by value versus passing a pointer value to mutate caller-owned data.",
-    caption:
-      "Go always passes arguments by value. A copied pointer can still reach caller-owned data.",
-    transcript:
-      "The diagram compares doubleValue copying n so caller remains unchanged with doublePointer copying the address so star p mutates caller data.",
   },
   {
     id: "interface-value",
@@ -393,7 +392,7 @@ if err != nil {
             title: "The traps worth teaching",
             paragraphs: [
               "`flags & mask != 0` is parsed as `(flags & mask) != 0`, because `&` binds tighter than `!=`. That is legal, but the parentheses are still better because they show the intended bit test.",
-              "`1 << n + 1` is parsed as `1 << (n + 1)` because shifts share the high precedence level and the right operand expression includes `n + 1`. If you mean add one after shifting, write `(1 << n) + 1`.",
+              "`1 << n + 1` is parsed as `(1 << n) + 1`, because shifts bind tighter than addition. If you mean to shift by `n + 1`, write `1 << (n + 1)`.",
               "`a || b && c` is parsed as `a || (b && c)`. The code compiles, but parentheses keep the condition readable.",
             ],
           },
@@ -419,8 +418,8 @@ allowed := ready && retries < 3`,
           {
             title: "Shift and boolean grouping",
             summary: "Use parentheses when two readings are plausible.",
-            code: `nextPower := 1 << (n + 1)
-afterShift := (1 << n) + 1
+            code: `shiftThenAdd := (1 << n) + 1
+shiftByNext := 1 << (n + 1)
 
 if a || (b && c) {
     doWork()
@@ -429,7 +428,7 @@ if a || (b && c) {
         ],
         mistakes: [
           "Relying on readers to remember every precedence level",
-          "Writing shift expressions where `1 << n + 1` could be read two ways",
+          "Writing shift expressions without parentheses when `(1 << n) + 1` and `1 << (n + 1)` are both plausible to a reader",
           "Mixing `&&` and `||` without parentheses in business rules",
           "Using clever one-line expressions where named boolean steps would teach intent",
         ],
@@ -545,6 +544,68 @@ for index, r := range text {
             title: "Rune-aware limit",
             prompt: "Write a function that keeps only the first five runes of a string.",
             goal: "Practice choosing rune-aware logic only where it is needed.",
+          },
+        ],
+      },
+      {
+        id: "functions-and-closures",
+        title: "Functions, Multiple Returns, and Closures",
+        teachingGoal:
+          "Use functions as small boundaries with explicit inputs, outputs, and captured state.",
+        diagramIds: [],
+        explanation: [
+          {
+            paragraphs: [
+              "Go functions commonly return more than one value, especially a useful result plus an error. That keeps the success path and failure path visible at the call site.",
+              "Functions are also values. You can pass behavior into helpers, return closures, and keep small bits of state private without inventing a framework or class hierarchy.",
+            ],
+          },
+        ],
+        snippets: [
+          {
+            title: "Multiple returns with early error handling",
+            summary: "Return the parsed value and the reason parsing failed.",
+            code: `func parsePort(input string) (int, error) {
+    port, err := strconv.Atoi(input)
+    if err != nil {
+        return 0, fmt.Errorf("parse port %q: %w", input, err)
+    }
+    if port <= 0 || port > 65535 {
+        return 0, fmt.Errorf("port out of range: %d", port)
+    }
+    return port, nil
+}`,
+          },
+          {
+            title: "Closure over private state",
+            summary: "A closure can keep state local to the function that creates it.",
+            code: `func counter() func() int {
+    value := 0
+    return func() int {
+        value++
+        return value
+    }
+}`,
+          },
+        ],
+        mistakes: [
+          "Returning sentinel values instead of an error when callers need to know why work failed",
+          "Using named result parameters when they make the return path less obvious",
+          "Capturing mutable state in a closure and then sharing it across goroutines without synchronization",
+        ],
+        checks: [
+          {
+            question: "Why do many Go functions return `(value, error)`?",
+            answer:
+              "The caller can handle success and failure explicitly without hidden exceptions.",
+          },
+        ],
+        exercises: [
+          {
+            title: "Validate a port",
+            prompt:
+              "Write `parsePort` with table tests for empty, non-numeric, low, high, and valid inputs.",
+            goal: "Practice small function boundaries with branchable failures.",
           },
         ],
       },
@@ -706,6 +767,70 @@ fmt.Println(count) // 0, the zero value for int`,
         ],
       },
       {
+        id: "structs-and-value-ownership",
+        title: "Structs and Arrays Are Values",
+        teachingGoal:
+          "Model data with structs while staying clear about value copies, invariants, and ownership.",
+        diagramIds: [],
+        explanation: [
+          {
+            paragraphs: [
+              "A struct value contains its fields. Assigning a struct copies those fields, which is often exactly what you want for small immutable facts. Arrays behave the same way: assigning an array copies every element.",
+              "Use unexported fields and constructor functions when a type has invariants. Public fields are fine for plain data, but they let every caller rewrite state directly.",
+            ],
+          },
+        ],
+        snippets: [
+          {
+            title: "Constructor protects invariants",
+            summary: "Export behavior while keeping representation details package-local.",
+            code: `type Port struct {
+    value int
+}
+
+func NewPort(value int) (Port, error) {
+    if value <= 0 || value > 65535 {
+        return Port{}, fmt.Errorf("invalid port: %d", value)
+    }
+    return Port{value: value}, nil
+}
+
+func (port Port) Value() int {
+    return port.value
+}`,
+          },
+          {
+            title: "Array assignment copies elements",
+            summary: "Arrays are values; slices are windows onto backing storage.",
+            code: `a := [3]string{"go", "test", "ship"}
+b := a
+b[0] = "copy"
+
+fmt.Println(a[0]) // "go"
+fmt.Println(b[0]) // "copy"`,
+          },
+        ],
+        mistakes: [
+          "Exporting every struct field before you know the package API",
+          "Expecting array assignment to behave like slice assignment",
+          "Using pointers only to avoid thinking about the ownership model",
+        ],
+        checks: [
+          {
+            question: "What happens when you assign one array variable to another?",
+            answer: "The array value is copied, including all of its elements.",
+          },
+        ],
+        exercises: [
+          {
+            title: "Hide an invariant",
+            prompt:
+              "Create a small `Email` or `Port` type with an unexported field, a constructor, and one exported method.",
+            goal: "Practice using package visibility to protect valid state.",
+          },
+        ],
+      },
+      {
         id: "explicit-pointers",
         title: "Explicit Pointers: Address, Dereference, Nil, and Mutation",
         teachingGoal: "Understand pointer variables as ordinary values that store addresses.",
@@ -817,6 +942,66 @@ if p == nil {
     ],
     lessons: [
       {
+        id: "methods-and-receivers",
+        title: "Methods Attach Behavior to Named Types",
+        teachingGoal:
+          "Choose value and pointer receivers based on mutation, copying, and method sets.",
+        diagramIds: [],
+        explanation: [
+          {
+            paragraphs: [
+              "A method is a function with a receiver. The receiver is just another parameter, but placing it before the function name attaches behavior to a named type and makes the call read naturally.",
+              "Use a pointer receiver when the method must mutate the receiver, avoid copying a large value, or keep a consistent method set with other pointer methods. Use a value receiver when copying is cheap and value semantics are the point.",
+            ],
+          },
+        ],
+        snippets: [
+          {
+            title: "Value receiver for immutable behavior",
+            summary: "The method reads a copy and leaves the original value unchanged.",
+            code: `type Celsius float64
+
+func (temperature Celsius) Fahrenheit() float64 {
+    return float64(temperature)*9/5 + 32
+}`,
+          },
+          {
+            title: "Pointer receiver for mutation",
+            summary: "The method changes caller-owned state through the receiver pointer.",
+            code: `type Counter struct {
+    value int
+}
+
+func (counter *Counter) Inc() {
+    counter.value++
+}
+
+func (counter Counter) Value() int {
+    return counter.value
+}`,
+          },
+        ],
+        mistakes: [
+          "Mixing value and pointer receivers accidentally instead of by design",
+          "Using pointer receivers for tiny immutable values where value semantics are clearer",
+          "Forgetting that methods can be declared only on named types in the same package",
+        ],
+        checks: [
+          {
+            question: "When is a pointer receiver the obvious choice?",
+            answer: "When the method must mutate receiver state or avoid copying a large value.",
+          },
+        ],
+        exercises: [
+          {
+            title: "Pick the receiver",
+            prompt:
+              "Add methods to a `Counter` and a `Point` type, then explain which receivers should be values and which should be pointers.",
+            goal: "Practice connecting receiver choice to ownership and mutation.",
+          },
+        ],
+      },
+      {
         id: "interfaces",
         title: "Interfaces Carry Dynamic Type and Value",
         teachingGoal: "Reason about interface values, small interfaces, and nil traps.",
@@ -900,6 +1085,7 @@ func Expired(clock Clock, deadline time.Time) bool {
           {
             title: "Push iterator function",
             summary: "The iterator calls `yield`; the loop receives each value.",
+            minGoVersion: "1.23",
             code: `func Count(yield func(int) bool) {
     for i := range 3 {
         if !yield(i) {
@@ -915,6 +1101,7 @@ for value := range Count {
           {
             title: "Named iterator type",
             summary: "`iter.Seq` is the standard one-value iterator shape.",
+            minGoVersion: "1.23",
             code: `func CountTo(n int) iter.Seq[int] {
     return func(yield func(int) bool) {
         for i := range n {
@@ -1040,6 +1227,63 @@ for value := range Count {
           },
         ],
       },
+      {
+        id: "packages-modules-tests",
+        title: "Packages, Modules, and the Quality Loop",
+        teachingGoal:
+          "Use modules, small package boundaries, and tests as part of the normal development loop.",
+        diagramIds: [],
+        explanation: [
+          {
+            paragraphs: [
+              "A Go module gives a package tree a versioned dependency boundary through `go.mod`. Inside that module, packages should exist because they own a clear responsibility, not because a template said every project needs more folders.",
+              "The daily quality loop is mechanical: format, vet or lint, test, and run the race detector when shared state is involved. That loop should be easy enough to run before every meaningful change.",
+            ],
+          },
+        ],
+        snippets: [
+          {
+            title: "Small module shape",
+            summary:
+              "`cmd` owns entry points; `internal` hides implementation from outside imports.",
+            code: `module example.com/app
+
+go 1.23
+
+// example.com/app/
+//   cmd/server/main.go
+//   internal/store/store.go
+//   internal/service/service.go`,
+          },
+          {
+            title: "Quality loop commands",
+            summary: "Run the same checks locally that CI will expect.",
+            code: `go fmt ./...
+go vet ./...
+go test ./...
+go test -race ./...`,
+          },
+        ],
+        mistakes: [
+          "Copying a large folder layout before the package responsibilities exist",
+          "Letting `replace` directives become permanent release configuration",
+          "Skipping race tests for code that shares mutable state between goroutines",
+        ],
+        checks: [
+          {
+            question: "What should decide whether a new package exists?",
+            answer: "A clear responsibility and API boundary, not a fashionable folder layout.",
+          },
+        ],
+        exercises: [
+          {
+            title: "Refactor one package boundary",
+            prompt:
+              "Move a persistence detail behind an `internal/store` package and test the caller through a small interface.",
+            goal: "Practice using packages to make responsibilities explicit.",
+          },
+        ],
+      },
     ],
   },
   {
@@ -1114,6 +1358,72 @@ resp, err := http.DefaultClient.Do(req)`,
             title: "Build a streaming endpoint",
             prompt: "Write an HTTP handler that encodes a response with `json.NewEncoder(w)`.",
             goal: "Practice using standard library boundaries directly.",
+          },
+        ],
+      },
+      {
+        id: "http-time-logging-database",
+        title: "HTTP, Time, Logging, and Database Boundaries",
+        teachingGoal:
+          "Carry deadlines, structured logs, and database calls through explicit standard-library boundaries.",
+        diagramIds: [],
+        explanation: [
+          {
+            paragraphs: [
+              "`net/http`, `time`, `context`, `log/slog`, and `database/sql` are designed to meet at boundaries. A handler should accept a request context, pass it to downstream calls, log useful facts, and keep persistence details behind a small API.",
+              "Timeouts belong close to the work they bound. Databases and HTTP clients should receive contexts so cancellation can travel through slow or abandoned work instead of leaving background operations behind.",
+            ],
+          },
+        ],
+        snippets: [
+          {
+            title: "Handler with structured logging",
+            summary: "Keep transport concerns local and pass context into application work.",
+            code: `func handleUser(logger *slog.Logger, users UserStore) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        user, err := users.Find(r.Context(), r.PathValue("id"))
+        if err != nil {
+            logger.ErrorContext(r.Context(), "find user", "error", err)
+            http.Error(w, "not found", http.StatusNotFound)
+            return
+        }
+
+        _ = json.NewEncoder(w).Encode(user)
+    }
+}`,
+          },
+          {
+            title: "Database call with caller lifetime",
+            summary: "`database/sql` methods accept context at query and transaction boundaries.",
+            code: `func (store Store) Find(ctx context.Context, id string) (User, error) {
+    var user User
+    err := store.db.QueryRowContext(
+        ctx,
+        "select id, name from users where id = ?",
+        id,
+    ).Scan(&user.ID, &user.Name)
+    return user, err
+}`,
+          },
+        ],
+        mistakes: [
+          "Using `http.DefaultClient` for production calls without an explicit timeout plan",
+          "Creating a fresh background context inside request-scoped database work",
+          "Logging errors but returning no structured error to the caller that needs to decide",
+        ],
+        checks: [
+          {
+            question: "Why should database calls usually receive the request context?",
+            answer:
+              "So cancellation and deadlines propagate when the caller goes away or times out.",
+          },
+        ],
+        exercises: [
+          {
+            title: "Add a timeout boundary",
+            prompt:
+              "Wrap an outbound HTTP request or database query with a context deadline and test the timeout path.",
+            goal: "Practice making slow dependencies bounded and observable.",
           },
         ],
       },
@@ -1194,6 +1504,69 @@ case <-time.After(500 * time.Millisecond):
           },
         ],
       },
+      {
+        id: "sync-primitives",
+        title: "WaitGroups, Mutexes, and Race Detection",
+        teachingGoal:
+          "Choose synchronization primitives based on whether you need completion, memory protection, or event choice.",
+        diagramIds: [],
+        explanation: [
+          {
+            paragraphs: [
+              "`sync.WaitGroup` answers one question: when is a known set of work finished? A `Mutex` answers a different question: who may read or write this shared memory right now?",
+              "Channels, locks, condition variables, and atomics are not interchangeable decorations. Channels fit ownership transfer and event selection; locks fit shared memory; atomics fit very narrow counters or flags after you understand the memory model.",
+            ],
+          },
+        ],
+        snippets: [
+          {
+            title: "Wait for workers and protect a map",
+            summary: "Call `Add` before launch, `Done` on exit, and lock around shared state.",
+            code: `var (
+    wg   sync.WaitGroup
+    mu   sync.Mutex
+    hits = map[string]int{}
+)
+
+for _, word := range []string{"go", "go", "gopher"} {
+    word := word
+    wg.Add(1)
+    go func() {
+        defer wg.Done()
+        mu.Lock()
+        defer mu.Unlock()
+        hits[word]++
+    }()
+}
+
+wg.Wait()`,
+          },
+          {
+            title: "Race detector command",
+            summary: "Use the race detector whenever concurrent code shares memory.",
+            code: `go test -race ./...`,
+          },
+        ],
+        mistakes: [
+          "Calling `WaitGroup.Add` after a goroutine can already call `Done`",
+          "Protecting writes with a mutex but leaving reads unprotected",
+          "Using atomics to avoid a simple lock in code that needs multiple fields to stay consistent",
+        ],
+        checks: [
+          {
+            question: "What does a mutex protect?",
+            answer: "A critical section around shared memory, not a goroutine by itself.",
+          },
+        ],
+        exercises: [
+          {
+            title: "Make a race disappear",
+            prompt:
+              "Write a test that increments a shared map from goroutines, observe `go test -race`, then fix it with a mutex.",
+            goal: "Connect the race detector output to a concrete synchronization choice.",
+          },
+        ],
+      },
     ],
   },
   {
@@ -1261,6 +1634,81 @@ case <-time.After(500 * time.Millisecond):
             prompt:
               "Build a worker pool with a fixed worker count, a jobs channel, and context cancellation.",
             goal: "Practice backpressure and shutdown together.",
+          },
+        ],
+      },
+      {
+        id: "bounded-worker-pools",
+        title: "Bounded Worker Pools and Graceful Shutdown",
+        teachingGoal:
+          "Limit concurrency, close outputs deterministically, and let cancellation stop the pipeline.",
+        diagramIds: [],
+        explanation: [
+          {
+            paragraphs: [
+              "A worker pool is useful when it makes load predictable. The point is not to start as many goroutines as possible; it is to bound parallel work and create backpressure when producers outrun consumers.",
+              "Every pipeline needs an ownership story. Know who closes each channel, how workers observe cancellation, and how the final consumer learns no more results are coming.",
+            ],
+          },
+        ],
+        snippets: [
+          {
+            title: "Bounded pool shell",
+            summary:
+              "A fixed worker count limits parallelism and closes results after all workers finish.",
+            code: `func runPool(ctx context.Context, jobs <-chan Job, workers int) <-chan Result {
+    results := make(chan Result)
+    var wg sync.WaitGroup
+
+    for worker := 0; worker < workers; worker++ {
+        wg.Add(1)
+        go func() {
+            defer wg.Done()
+            for {
+                select {
+                case <-ctx.Done():
+                    return
+                case job, ok := <-jobs:
+                    if !ok {
+                        return
+                    }
+                    result := process(job)
+                    select {
+                    case results <- result:
+                    case <-ctx.Done():
+                        return
+                    }
+                }
+            }
+        }()
+    }
+
+    go func() {
+        wg.Wait()
+        close(results)
+    }()
+
+    return results
+}`,
+          },
+        ],
+        mistakes: [
+          "Leaving the result channel open after every worker has exited",
+          "Letting producers enqueue unlimited work when consumers are slower",
+          "Canceling the context but still blocking forever while sending a result",
+        ],
+        checks: [
+          {
+            question: "Who closes the result channel in a worker pool?",
+            answer: "The coordinator that knows all sending workers have finished.",
+          },
+        ],
+        exercises: [
+          {
+            title: "Add backpressure",
+            prompt:
+              "Build a fixed-size worker pool and make the producer block when the jobs channel is full.",
+            goal: "Practice bounded concurrency instead of unbounded fan-out.",
           },
         ],
       },
@@ -1338,6 +1786,63 @@ fmt.Println(unsafe.Sizeof(BadLayout{}), unsafe.Sizeof(BetterLayout{}))`,
             title: "Benchmark a clone",
             prompt: "Write a benchmark that reports allocations while cloning a byte slice.",
             goal: "Attach performance decisions to measured allocation behavior.",
+          },
+        ],
+      },
+      {
+        id: "measurement-loop",
+        title: "Benchmark, Profile, Then Change",
+        teachingGoal:
+          "Use benchmarks, allocation reports, escape analysis, pprof, and trace before rewriting code.",
+        diagramIds: [],
+        explanation: [
+          {
+            paragraphs: [
+              "Escape analysis and garbage collection explain where allocations come from, but they are only useful when tied to a measured problem. Start with a benchmark or profile that represents the workload you care about.",
+              "`pprof` shows CPU and heap behavior, `trace` shows scheduler and blocking behavior, and benchmark allocation reports show whether a change reduced allocation pressure. Use those tools before trading clear code for clever code.",
+            ],
+          },
+        ],
+        snippets: [
+          {
+            title: "Allocation-aware benchmark",
+            summary: "Use `b.ReportAllocs` and the classic `b.N` loop for broad toolchain support.",
+            code: `func BenchmarkCloneBytes(b *testing.B) {
+    src := bytes.Repeat([]byte("go"), 512)
+    b.ReportAllocs()
+
+    for i := 0; i < b.N; i++ {
+        dst := slices.Clone(src)
+        _ = dst
+    }
+}`,
+          },
+          {
+            title: "Profile commands",
+            summary: "Collect evidence before changing data structures or synchronization.",
+            code: `go test -bench=. -benchmem ./...
+go test -bench=. -cpuprofile=cpu.out ./...
+go tool pprof cpu.out
+go test -run=TestName -trace=trace.out ./...`,
+          },
+        ],
+        mistakes: [
+          "Optimizing a path that does not appear in realistic profiles",
+          "Reading escape analysis output without measuring whether the allocation matters",
+          "Using `sync.Pool` before proving allocation churn is a bottleneck",
+        ],
+        checks: [
+          {
+            question: "Which tool should usually come before a performance rewrite?",
+            answer: "A benchmark or profile that represents the real workload.",
+          },
+        ],
+        exercises: [
+          {
+            title: "Profile before changing",
+            prompt:
+              "Benchmark a function that allocates, capture `-benchmem`, make one change, and explain the result with numbers.",
+            goal: "Practice evidence-driven performance work.",
           },
         ],
       },
@@ -1470,6 +1975,71 @@ func defaultSocketPath() string {
             prompt:
               "Sketch an adapter package that hides a platform-specific implementation behind one exported function.",
             goal: "Practice containing advanced tools.",
+          },
+        ],
+      },
+      {
+        id: "boundary-tools",
+        title: "Reflection, Unsafe, and cgo Stay Small",
+        teachingGoal:
+          "Recognize the job each advanced tool can do and keep the rest of the program typed and ordinary.",
+        diagramIds: [],
+        explanation: [
+          {
+            paragraphs: [
+              "Reflection is appropriate for boundary code such as serializers, validators, command mappers, and test helpers. It should not spread into business logic that could be plain typed code.",
+              "`unsafe` and cgo are even narrower. Use them when layout, interoperability, or native integration requires it, then hide that requirement behind a documented package API and focused tests.",
+            ],
+          },
+        ],
+        snippets: [
+          {
+            title: "Reflection at a boundary",
+            summary:
+              "Inspect tags in one helper instead of passing reflect values through the program.",
+            code: `func exportedFieldNames(value any) []string {
+    typ := reflect.TypeOf(value)
+    if typ.Kind() == reflect.Pointer {
+        typ = typ.Elem()
+    }
+
+    names := make([]string, 0, typ.NumField())
+    for index := 0; index < typ.NumField(); index++ {
+        field := typ.Field(index)
+        if field.IsExported() {
+            names = append(names, field.Name)
+        }
+    }
+    return names
+}`,
+          },
+          {
+            title: "Unsafe assumption behind a helper",
+            summary: "Expose the checked result, not the low-level operation.",
+            code: `func layoutReport[T any]() (size uintptr, align uintptr) {
+    var zero T
+    return unsafe.Sizeof(zero), unsafe.Alignof(zero)
+}`,
+          },
+        ],
+        mistakes: [
+          "Passing `reflect.Value` through ordinary application code",
+          "Using `unsafe` as a shortcut around a type design problem",
+          "Adding cgo without accounting for cross-compilation and deployment constraints",
+        ],
+        checks: [
+          {
+            question: "What should callers see when a package uses unsafe internally?",
+            answer:
+              "A small typed API with the unsafe invariant documented and tested inside the package.",
+          },
+        ],
+        exercises: [
+          {
+            title: "Fence a reflection helper",
+            prompt:
+              "Write a helper that reads struct tags, then keep all reflection inside that helper and test it directly.",
+            goal: "Practice containing advanced boundary code.",
           },
         ],
       },
@@ -1715,6 +2285,7 @@ slices.Sort(keys)`,
   {
     title: "Iterator yield pattern",
     note: "`yield` is a callback parameter convention, not a keyword.",
+    minGoVersion: "1.23",
     code: `func Count(yield func(int) bool) {
     for i := range 3 {
         if !yield(i) {

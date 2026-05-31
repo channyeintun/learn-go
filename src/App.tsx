@@ -10,7 +10,7 @@ import explicitPointer from "./assets/diagrams/explicit-pointer.png";
 import interfaceValue from "./assets/diagrams/interface-value.png";
 import iteratorYield from "./assets/diagrams/iterator-yield.png";
 import mapIteration from "./assets/diagrams/map-iteration.png";
-import operatorPrecedence from "./assets/diagrams/operator-precedence.png";
+import operatorPrecedence from "./assets/diagrams/operator-precedence.webp";
 import readerWriter from "./assets/diagrams/reader-writer.png";
 import schedulerMpg from "./assets/diagrams/scheduler-mpg.png";
 import sliceHeader from "./assets/diagrams/slice-header.png";
@@ -19,6 +19,7 @@ import stringRunes from "./assets/diagrams/string-runes.png";
 import structPadding from "./assets/diagrams/struct-padding.png";
 import {
   cheatSheet,
+  courseMeta,
   courseModules,
   courseParts,
   diagrams,
@@ -149,8 +150,12 @@ function App() {
               <SummaryStat label="Course parts" value={String(courseParts.length)} />
               <SummaryStat label="Modules" value={String(courseModules.length)} />
               <SummaryStat label="Lessons" value={String(countLessons())} />
+              <SummaryStat label="Target Go" value={courseMeta.targetGoVersion} />
               <SummaryStat label="Generated diagrams" value={String(generatedDiagramCount)} />
             </div>
+            <p className="max-w-3xl text-sm leading-6 text-ink/70">
+              {courseMeta.targetGoVersionDetail}
+            </p>
 
             <div className="flex flex-wrap gap-3">
               <a className="primary-button" href="#curriculum">
@@ -280,9 +285,12 @@ function App() {
                     }`}
                   >
                     <div>
-                      <h3 className="font-display text-2xl font-semibold tracking-tight">
-                        {item.title}
-                      </h3>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-display text-2xl font-semibold tracking-tight">
+                          {item.title}
+                        </h3>
+                        <VersionPill minGoVersion={item.minGoVersion} />
+                      </div>
                       <p className="mt-2 text-sm leading-6 text-ink/76">{item.note}</p>
                     </div>
                     <CodeBlock code={item.code} compact />
@@ -435,12 +443,19 @@ function ExampleCard({ snippet }: { snippet: CodeExample }) {
             <h5 className="font-semibold text-ink">{snippet.title}</h5>
             <p className="mt-1 text-sm leading-6 text-ink/72">{snippet.summary}</p>
           </div>
-          {snippet.complete ? <span className="level-pill">complete</span> : null}
+          <div className="flex flex-wrap gap-2">
+            {snippet.complete ? <span className="level-pill">complete</span> : null}
+            <VersionPill minGoVersion={snippet.minGoVersion} />
+          </div>
         </div>
       </div>
       <CodeBlock code={snippet.code} />
     </div>
   );
+}
+
+function VersionPill({ minGoVersion }: { minGoVersion?: string }) {
+  return minGoVersion ? <span className="level-pill">Go {minGoVersion}+</span> : null;
 }
 
 function DiagramFigure({

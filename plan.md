@@ -8,11 +8,10 @@ This file is a plan only. No implementation should start until the plan is revie
 
 ## Current Findings
 
-- `src/content.ts` already contains a useful starting curriculum with coverage areas, learning tracks, 16 modules, standard-library groups, practice rules, concurrency patterns, and cheat-sheet entries.
-- The current content model is too flat for teaching. It has module summaries, paragraphs, snippets, examples, and pitfalls, but it does not yet model learning outcomes, prerequisites, exercises, quizzes, glossary terms, diagram assets, or lesson-level navigation.
-- `src/App.tsx` renders the course as one long page. That works for a reference, but a teaching site needs clearer hierarchy: course parts, modules, lessons, examples, checks for understanding, and visual explanations.
-- Diagrams are currently hard-coded SVG components in `App.tsx`, mainly for concurrency. They are not reusable content assets and do not match the hand-drawn teaching style shown in `/Users/channyeintun/Desktop/books/pointer-vs-reference.png`.
-- Some content is version-sensitive and should be verified before publishing, especially references to newer Go APIs or syntax such as `errors.AsType`, `WaitGroup.Go`, `testing.B.Loop`, and integer `range`.
+- `src/course.ts` now contains the rendered curriculum with course parts, modules, lessons, outcomes, checks, exercises, glossary terms, cheat-sheet entries, and reusable diagram metadata.
+- `src/App.tsx` renders the course as one guided page with a curriculum hierarchy, diagrams, glossary, and cheat sheet.
+- Diagrams are reusable bitmap assets under `src/assets/diagrams` and are referenced by lesson data.
+- Version-sensitive content should stay labeled before publishing; future additions that mention newer Go APIs or syntax such as `errors.AsType`, `WaitGroup.Go`, `testing.B.Loop`, integer `range`, or range-over-function iterators need explicit version notes.
 
 ## Teaching Structure
 
@@ -81,11 +80,8 @@ type DiagramAsset = {
 
 Recommended file layout for implementation:
 
-- `src/content/index.ts`: exports assembled course data.
-- `src/content/parts.ts`: top-level course parts.
-- `src/content/modules/*.ts`: one file per module or part.
-- `src/content/diagrams.ts`: diagram metadata, captions, and alt text.
-- `src/content/glossary.ts`: terms like zero value, address, receiver, method set, interface value, goroutine, race, escape.
+- `src/course.ts`: currently exports assembled course data.
+- Future split option: `src/content/parts.ts`, `src/content/modules/*.ts`, `src/content/diagrams.ts`, and `src/content/glossary.ts` if the single file becomes too large.
 - `src/assets/diagrams/`: generated or drawn bitmap diagrams.
 
 ## Curriculum Map
@@ -344,7 +340,7 @@ Keep the Vite+ React app, but make the page structure course-oriented:
 
 ### Phase 1: Content Architecture
 
-- Split `src/content.ts` into smaller content files.
+- Split `src/course.ts` into smaller content files if editing the single course file becomes cumbersome.
 - Add `CoursePart`, `CourseModule`, `Lesson`, `DiagramAsset`, `Exercise`, and `GlossaryTerm` types.
 - Keep backwards-compatible exports temporarily if needed so the site can be migrated safely.
 
