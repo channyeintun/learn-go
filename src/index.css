@@ -389,7 +389,7 @@
     display: block;
     min-width: 0;
     color: inherit;
-    font-size: 1.28rem;
+    font-size: 18px;
     font-weight: 900;
     line-height: 1.24;
     text-wrap: balance;
@@ -412,7 +412,7 @@
   }
 
   .sidebar-module-item.is-active .sidebar-module-title {
-    font-size: 1.34rem;
+    font-size: 18px;
     line-height: 1.22;
   }
 
@@ -445,7 +445,7 @@
     display: block;
     padding: 0.64rem 1.2rem 0.64rem 3.95rem;
     color: rgba(203, 213, 225, 0.74);
-    font-size: 1.08rem;
+    font-size: 16px;
     font-weight: 900;
     line-height: 1.28;
     transition:
@@ -534,7 +534,7 @@
     margin: 0.7rem 0 0;
     color: var(--color-ink);
     font-family: var(--font-title-stack);
-    font-size: clamp(3rem, 8vw, 6.8rem);
+    font-size: 42px;
     font-weight: 900;
     letter-spacing: 0;
   }
@@ -544,14 +544,14 @@
   }
 
   .reader-header h1 {
-    font-size: clamp(2.7rem, 6vw, 5.1rem);
+    font-size: 42px;
   }
 
   .lede {
     max-width: 48rem;
     margin: 1.1rem 0 0;
     color: var(--color-muted-strong);
-    font-size: 1.24rem;
+    font-size: 16px;
     line-height: 1.65;
   }
 
@@ -559,7 +559,7 @@
     max-width: 50rem;
     margin: 1rem 0 0;
     color: var(--color-muted);
-    font-size: 0.92rem;
+    font-size: 16px;
   }
 
   .eyebrow {
@@ -627,7 +627,7 @@
     margin: 0.45rem 0 0;
     color: var(--color-ink);
     font-family: var(--font-title-stack);
-    font-size: clamp(2.15rem, 4.5vw, 3.8rem);
+    font-size: 18px;
     font-weight: 900;
     letter-spacing: 0;
   }
@@ -635,7 +635,7 @@
   .section-header p:last-child {
     margin: 0.75rem 0 0;
     color: var(--color-muted);
-    font-size: 1rem;
+    font-size: 16px;
     line-height: 1.65;
   }
 
@@ -725,13 +725,13 @@
   .cheatsheet-item h2 {
     margin: 0;
     color: var(--color-ink);
-    font-size: 1.05rem;
+    font-size: 18px;
     font-weight: 900;
   }
 
   .part-outline h3 {
     font-family: var(--font-title-stack);
-    font-size: 2.1rem;
+    font-size: 18px;
     font-weight: 900;
   }
 
@@ -743,6 +743,7 @@
     max-width: 42rem;
     margin: 0.35rem 0 0;
     color: var(--color-muted);
+    font-size: 16px;
   }
 
   .module-row-list,
@@ -778,7 +779,7 @@
 
   .row-title {
     color: var(--color-ink);
-    font-size: 1.02rem;
+    font-size: 18px;
     font-weight: 900;
     line-height: 1.25;
   }
@@ -787,7 +788,7 @@
     max-width: 47rem;
     margin-top: 0.3rem;
     color: var(--color-muted);
-    font-size: 0.95rem;
+    font-size: 16px;
     line-height: 1.6;
   }
 
@@ -814,7 +815,7 @@
     position: relative;
     padding-left: 1.15rem;
     color: var(--color-muted-strong);
-    font-size: 0.96rem;
+    font-size: 16px;
     line-height: 1.65;
   }
 
@@ -875,13 +876,14 @@
   .diagram-frame figcaption > p:first-child {
     margin: 0;
     color: var(--color-ink);
+    font-size: 18px;
     font-weight: 900;
   }
 
   .diagram-frame figcaption > p:nth-child(2) {
     margin: 0.25rem 0 0;
     color: var(--color-muted);
-    font-size: 0.92rem;
+    font-size: 16px;
     line-height: 1.6;
   }
 
@@ -907,14 +909,14 @@
   .prose-flow h3 {
     margin: 0 0 0.45rem;
     color: var(--color-ink);
-    font-size: 1.2rem;
+    font-size: 18px;
     font-weight: 900;
   }
 
   .prose-flow p {
     margin: 0;
     color: var(--color-muted-strong);
-    font-size: 1.18rem;
+    font-size: 16px;
     line-height: 1.78;
   }
 
@@ -1009,7 +1011,7 @@
   .cheatsheet-item p {
     margin: 0.35rem 0 0;
     color: var(--color-muted);
-    font-size: 0.94rem;
+    font-size: 16px;
     line-height: 1.65;
   }
 
@@ -1034,7 +1036,7 @@
   .qa-list p {
     margin: 0.25rem 0 0;
     color: var(--color-muted);
-    font-size: 0.94rem;
+    font-size: 16px;
     line-height: 1.65;
   }
 
@@ -1097,13 +1099,14 @@
 
   .glossary-list dt {
     color: var(--color-ink);
+    font-size: 18px;
     font-weight: 900;
   }
 
   .glossary-list dd {
     margin: 0;
     color: var(--color-muted);
-    font-size: 0.95rem;
+    font-size: 16px;
     line-height: 1.65;
   }
 
@@ -1145,7 +1148,7 @@
 
     .course-hero h1,
     .reader-header h1 {
-      font-size: clamp(2.45rem, 15vw, 3.6rem);
+      font-size: 42px;
     }
   }
 
