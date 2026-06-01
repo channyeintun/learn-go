@@ -1,4 +1,12 @@
-import { useEffect, useMemo, type CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { Link, NavLink, Route, Routes, useLocation, useParams, type To } from "react-router";
 import { PrismLight as SyntaxHighlighter } from "react-syntax-highlighter";
 import go from "react-syntax-highlighter/dist/esm/languages/prism/go";
@@ -32,6 +40,7 @@ import {
   type GlossaryTerm,
   type Lesson,
 } from "./course";
+import { getRunnableSnippetCode, runGoSnippet, type PlaygroundRunResult } from "./playground";
 
 SyntaxHighlighter.registerLanguage("go", go);
 
@@ -51,6 +60,22 @@ type LessonRecord = {
   part: CoursePart;
   sequence: number;
 };
+
+type RunState =
+  | {
+      status: "idle";
+    }
+  | {
+      status: "running";
+    }
+  | {
+      result: PlaygroundRunResult;
+      status: "complete";
+    }
+  | {
+      message: string;
+      status: "failed";
+    };
 
 const diagramSources: Record<string, string> = {
   "channel-rendezvous": channelRendezvous,
@@ -738,6 +763,45 @@ function GlossaryLinks({
 }
 
 function ExampleBlock({ snippet }: { snippet: CodeExample }) {
+  const runnableCode = getRunnableSnippetCode(snippet);
+  const [runState, setRunState] = useState<RunState>({ status: "idle" });
+  const abortRef = useRef<AbortController | null>(null);
+  const outputId = useId();
+
+  useEffect(
+    () => () => {
+      abortRef.current?.abort();
+    },
+    [],
+  );
+
+  const handleRun = useCallback(() => {
+    if (!runnableCode) {
+      return;
+    }
+
+    abortRef.current?.abort();
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setRunState({ status: "running" });
+
+    void runGoSnippet(runnableCode, controller.signal)
+      .then((result) => {
+        setRunState({ result, status: "complete" });
+      })
+      .catch((error: unknown) => {
+        if (isAbortError(error)) {
+          return;
+        }
+
+        setRunState({
+          message: error instanceof Error ? error.message : "Could not reach the Go Playground.",
+          status: "failed",
+        });
+      });
+  }, [runnableCode]);
+
   return (
     <section className="code-example">
       <div className="code-example-heading">
@@ -745,14 +809,73 @@ function ExampleBlock({ snippet }: { snippet: CodeExample }) {
           <h3>{snippet.title}</h3>
           <p>{snippet.summary}</p>
         </div>
-        <div className="pill-row">
-          {snippet.complete ? <span className="level-pill">complete</span> : null}
-          <VersionPill minGoVersion={snippet.minGoVersion} />
+        <div className="code-example-actions">
+          <div className="pill-row">
+            {snippet.complete ? <span className="level-pill">complete</span> : null}
+            <VersionPill minGoVersion={snippet.minGoVersion} />
+          </div>
+          {runnableCode ? (
+            <button
+              type="button"
+              className="run-button"
+              aria-controls={outputId}
+              disabled={runState.status === "running"}
+              onClick={handleRun}
+            >
+              {runState.status === "running" ? "Running" : "Run"}
+            </button>
+          ) : null}
         </div>
       </div>
       <CodeBlock code={snippet.code} />
+      <PlaygroundOutput outputId={outputId} runState={runState} />
     </section>
   );
+}
+
+function PlaygroundOutput({ outputId, runState }: { outputId: string; runState: RunState }) {
+  if (runState.status === "idle") {
+    return null;
+  }
+
+  if (runState.status === "running") {
+    return (
+      <div id={outputId} className="playground-output" role="status" aria-live="polite">
+        <span>Running</span>
+        <pre>Waiting for the Go Playground...</pre>
+      </div>
+    );
+  }
+
+  if (runState.status === "failed") {
+    return (
+      <div
+        id={outputId}
+        className="playground-output playground-output-error"
+        role="alert"
+        aria-live="assertive"
+      >
+        <span>Request failed</span>
+        <pre>{runState.message}</pre>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      id={outputId}
+      className={`playground-output playground-output-${runState.result.tone}`}
+      role="status"
+      aria-live="polite"
+    >
+      <span>{runState.result.label}</span>
+      <pre>{runState.result.output}</pre>
+    </div>
+  );
+}
+
+function isAbortError(error: unknown) {
+  return error instanceof DOMException && error.name === "AbortError";
 }
 
 function VersionPill({ minGoVersion }: { minGoVersion?: string }) {
