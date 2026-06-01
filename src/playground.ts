@@ -1,4 +1,5 @@
 import type { CodeExample } from "./course";
+import { runnableSnippetPrograms } from "./snippetRunners";
 
 export const playgroundCompileUrl = "https://play.golang.org/compile";
 
@@ -22,6 +23,15 @@ type PlaygroundResponse = {
 };
 
 export function getRunnableSnippetCode(snippet: CodeExample) {
+  if (snippet.runCode) {
+    return snippet.runCode;
+  }
+
+  const runnableSnippetProgram = runnableSnippetPrograms[snippet.title];
+  if (runnableSnippetProgram) {
+    return runnableSnippetProgram;
+  }
+
   const trimmedCode = snippet.code.trimStart();
 
   if (snippet.complete || trimmedCode.startsWith("package main")) {
@@ -77,7 +87,23 @@ export function formatPlaygroundResult(response: PlaygroundResponse): Playground
 
   return {
     label: failed ? "Run error" : response.IsTest ? "Tests passed" : "Output",
-    output: response.IsTest ? "Tests passed." : "Program ran with no output.",
+    output: getEmptyOutputMessage(response, failed),
     tone: failed ? "error" : "success",
   };
+}
+
+function getEmptyOutputMessage(response: PlaygroundResponse, failed: boolean) {
+  if (!failed) {
+    return response.IsTest ? "Tests passed." : "Program ran with no output.";
+  }
+
+  if (response.Status) {
+    return `Program exited with status ${response.Status} and produced no output.`;
+  }
+
+  if (response.TestsFailed) {
+    return `${response.TestsFailed} test${response.TestsFailed === 1 ? "" : "s"} failed with no output.`;
+  }
+
+  return "Program failed with no output.";
 }

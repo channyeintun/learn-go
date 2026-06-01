@@ -18,6 +18,7 @@ export type CodeExample = {
   code: string;
   complete?: boolean;
   minGoVersion?: string;
+  runCode?: string;
 };
 
 export type CheckQuestion = {

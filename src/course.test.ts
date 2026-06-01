@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { cheatSheet, courseModules, courseParts, diagrams, glossary } from "./course";
+import { runnableSnippetPrograms } from "./snippetRunners";
 
 const diagramAssetIds = Object.keys(
   import.meta.glob("./assets/diagrams/*.{png,webp}", { eager: true }),
@@ -83,6 +84,23 @@ describe("course content", () => {
         example.minGoVersion,
         `${example.label} uses newer Go syntax without a minimum Go version`,
       ).toBeTruthy();
+    }
+  });
+
+  it("keeps runnable backing examples attached to existing lesson snippets", () => {
+    const snippetTitles = courseModules.flatMap((courseModule) =>
+      courseModule.lessons.flatMap((lesson) => lesson.snippets.map((snippet) => snippet.title)),
+    );
+    const uniqueSnippetTitles = new Set(snippetTitles);
+
+    expect(uniqueSnippetTitles.size, "snippet titles key runnable backing examples").toBe(
+      snippetTitles.length,
+    );
+    for (const title of Object.keys(runnableSnippetPrograms)) {
+      expect(
+        uniqueSnippetTitles.has(title),
+        `${title} has runnable code but no lesson snippet`,
+      ).toBe(true);
     }
   });
 

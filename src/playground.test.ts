@@ -31,6 +31,17 @@ describe("playground helpers", () => {
     ).toBeUndefined();
   });
 
+  it("uses runnable backing code for lesson fragments", () => {
+    expect(
+      getRunnableSnippetCode({
+        code: `text := "Go語"
+fmt.Println(len(text))`,
+        summary: "",
+        title: "Byte length versus rune iteration",
+      }),
+    ).toContain("package main");
+  });
+
   it("formats compiler errors before runtime output", () => {
     expect(
       formatPlaygroundResult({
@@ -53,6 +64,18 @@ describe("playground helpers", () => {
     ).toEqual({
       label: "Run error",
       output: "panic: x",
+      tone: "error",
+    });
+  });
+
+  it("does not describe failed empty output as a successful run", () => {
+    expect(
+      formatPlaygroundResult({
+        Status: 1,
+      }),
+    ).toEqual({
+      label: "Run error",
+      output: "Program exited with status 1 and produced no output.",
       tone: "error",
     });
   });
