@@ -1029,6 +1029,7 @@ func (h *intMinHeap) Pop() any {
             paragraphs: [
               "When edges have non-negative weights, BFS no longer measures cost. Dijkstra keeps a priority queue of cheapest tentative nodes and relaxes edges from the cheapest unsettled frontier.",
               "Union-find answers a different question: are two items in the same connected component as edges are added? It does not list the path, but it is extremely practical for connectivity, clustering, and Kruskal-style minimum spanning tree work.",
+              "For a real-world routing context, Veritasium and 2Swap's video [How Does Google Maps Actually Work?](https://www.youtube.com/watch?v=kS-CGkiPetQ&t=5s) connects Dijkstra to map routing, then shows why production navigation systems also need extra ideas around search direction and road-network structure.",
             ],
           },
         ],

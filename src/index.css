@@ -947,6 +947,15 @@
     line-height: 1.78;
   }
 
+  .prose-flow a {
+    color: var(--color-accent-strong);
+    font-weight: 800;
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 0.18em;
+    overflow-wrap: anywhere;
+  }
+
   .code-example {
     display: grid;
     gap: 0.9rem;

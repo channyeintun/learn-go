@@ -982,7 +982,9 @@ function LessonPage({
             <section key={`${lesson.id}-block-${index}`}>
               {block.title ? <h3>{block.title}</h3> : null}
               {block.paragraphs.map((paragraph) => (
-                <p key={paragraph}>{paragraph}</p>
+                <p key={paragraph}>
+                  <LinkedText text={paragraph} />
+                </p>
               ))}
             </section>
           ))}
@@ -1585,6 +1587,55 @@ function CodeBlock({ code, compact = false }: { code: string; compact?: boolean 
       {code}
     </SyntaxHighlighter>
   );
+}
+
+function LinkedText({ text }: { text: string }) {
+  return <>{parseInlineLinks(text)}</>;
+}
+
+function parseInlineLinks(text: string) {
+  const nodes: ReactNode[] = [];
+  const linkPattern = /\[([^\]]+)]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s]+)/g;
+  let previousIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = linkPattern.exec(text))) {
+    if (match.index > previousIndex) {
+      nodes.push(text.slice(previousIndex, match.index));
+    }
+
+    const [, markdownLabel, markdownUrl, bareUrl] = match;
+    const { trailingText, url } = splitTrailingUrlPunctuation(markdownUrl ?? bareUrl);
+    nodes.push(
+      <a key={`inline-link-${match.index}`} href={url} rel="noreferrer" target="_blank">
+        {markdownLabel ?? url}
+      </a>,
+    );
+
+    if (trailingText) {
+      nodes.push(trailingText);
+    }
+
+    previousIndex = match.index + match[0].length;
+  }
+
+  if (previousIndex < text.length) {
+    nodes.push(text.slice(previousIndex));
+  }
+
+  return nodes.length ? nodes : text;
+}
+
+function splitTrailingUrlPunctuation(url: string) {
+  const match = url.match(/[.,;:!?]+$/);
+  if (!match) {
+    return { trailingText: "", url };
+  }
+
+  return {
+    trailingText: match[0],
+    url: url.slice(0, -match[0].length),
+  };
 }
 
 function routeForCourse(courseId: string) {
