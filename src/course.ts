@@ -399,16 +399,6 @@ if err != nil {
         ],
         snippets: [
           {
-            title: "Precedence table in code comments",
-            summary: "Unary binds first; binary levels go from 5 down to 1.",
-            code: `// unary: + - ! ^ * & <-      highest
-// 5:     * / % << >> & &^
-// 4:     + - | ^
-// 3:     == != < <= > >=
-// 2:     &&
-// 1:     ||                 lowest`,
-          },
-          {
             title: "Bitwise and comparison",
             summary: "Wrap the bitwise operation to make the test obvious.",
             code: `ready := (flags & mask) != 0
