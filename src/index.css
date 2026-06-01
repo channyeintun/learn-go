@@ -927,6 +927,10 @@
     padding-top: 1.25rem;
   }
 
+  .code-example.is-console-active {
+    border-top-color: rgba(103, 232, 249, 0.48);
+  }
+
   .code-example-heading,
   .cheatsheet-item {
     display: grid;
@@ -967,44 +971,142 @@
     opacity: 0.72;
   }
 
-  .playground-output {
-    overflow: hidden;
-    border: 1px solid rgba(103, 232, 249, 0.22);
-    border-radius: 0.5rem;
-    background: rgba(4, 12, 20, 0.96);
+  .run-button[aria-expanded="true"] {
+    box-shadow: 0 0 0 3px rgba(103, 232, 249, 0.16);
   }
 
-  .playground-output span {
-    display: block;
+  .snippet-run-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 2.55rem;
+    border: 1px solid rgba(103, 232, 249, 0.16);
+    border-radius: 0.45rem;
+    padding: 0.52rem 0.65rem;
+    background: rgba(8, 15, 27, 0.78);
+    color: var(--color-muted-strong);
+    font-size: 0.84rem;
+    font-weight: 900;
+    line-height: 1.2;
+  }
+
+  .snippet-run-summary-success {
+    border-color: rgba(103, 232, 249, 0.24);
+  }
+
+  .snippet-run-summary-error {
+    border-color: rgba(251, 146, 60, 0.34);
+  }
+
+  .snippet-run-summary button,
+  .playground-console-actions button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2rem;
+    border: 1px solid rgba(148, 163, 184, 0.26);
+    border-radius: 0.4rem;
+    padding: 0 0.72rem;
+    background: rgba(15, 23, 42, 0.82);
+    color: var(--color-ink);
+    font-size: 0.78rem;
+    font-weight: 900;
+    line-height: 1;
+  }
+
+  .snippet-run-summary button:hover,
+  .playground-console-actions button:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent-strong);
+  }
+
+  .lesson-page.has-playground-console {
+    padding-bottom: 23rem;
+  }
+
+  .playground-console {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 60;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    max-height: min(54svh, 24rem);
+    border-top: 1px solid rgba(103, 232, 249, 0.28);
+    background: rgba(4, 10, 18, 0.98);
+    box-shadow: 0 -24px 70px rgba(0, 0, 0, 0.45);
+  }
+
+  .playground-console-error {
+    border-top-color: rgba(251, 146, 60, 0.48);
+  }
+
+  .playground-console-header {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    justify-content: space-between;
+    min-width: 0;
     border-bottom: 1px solid rgba(103, 232, 249, 0.16);
-    padding: 0.55rem 0.8rem;
+    padding: 0.82rem 1rem;
+  }
+
+  .playground-console-title {
+    flex: 1 1 14rem;
+    min-width: 0;
+  }
+
+  .playground-console-title span,
+  .playground-console-status {
     color: var(--color-accent-strong);
     font-family: var(--font-mono-stack);
-    font-size: 0.74rem;
+    font-size: 0.72rem;
     font-weight: 900;
     letter-spacing: 0.08em;
     line-height: 1;
     text-transform: uppercase;
   }
 
-  .playground-output pre {
-    overflow-x: auto;
+  .playground-console-error .playground-console-status {
+    color: #fed7aa;
+  }
+
+  .playground-console-title h2 {
+    overflow: hidden;
+    margin: 0.35rem 0 0;
+    color: var(--color-ink);
+    font-size: 1rem;
+    font-weight: 900;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .playground-console-actions {
+    display: flex;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    align-items: center;
+    justify-content: flex-end;
+  }
+
+  .playground-console-body {
+    overflow: auto;
+    min-height: 8rem;
+  }
+
+  .playground-console-body pre {
     margin: 0;
-    padding: 0.85rem;
+    padding: 1rem;
     color: var(--color-muted-strong);
     font-family: var(--font-mono-stack);
     font-size: 0.84rem;
     line-height: 1.65;
     white-space: pre-wrap;
-  }
-
-  .playground-output-error {
-    border-color: rgba(251, 146, 60, 0.42);
-  }
-
-  .playground-output-error span {
-    border-bottom-color: rgba(251, 146, 60, 0.25);
-    color: #fed7aa;
   }
 
   .code-example-heading p,
@@ -1150,6 +1252,28 @@
     .reader-header h1 {
       font-size: 42px;
     }
+
+    .lesson-page.has-playground-console {
+      padding-bottom: 25rem;
+    }
+
+    .playground-console {
+      max-height: 62svh;
+      border-radius: 0.75rem 0.75rem 0 0;
+    }
+
+    .playground-console-header {
+      align-items: flex-start;
+    }
+
+    .playground-console-actions {
+      flex: 1 1 100%;
+      justify-content: space-between;
+    }
+
+    .playground-console-body pre {
+      font-size: 0.78rem;
+    }
   }
 
   @media (min-width: 640px) {
@@ -1252,6 +1376,10 @@
     .course-main {
       margin-left: var(--sidebar-width);
       padding: 0 2rem;
+    }
+
+    .playground-console {
+      left: var(--sidebar-width);
     }
 
     .mobile-course-index {

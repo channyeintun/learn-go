@@ -82,6 +82,14 @@ type RunState =
       status: "failed";
     };
 
+type RunStateView = {
+  ariaLive: "assertive" | "polite";
+  label: string;
+  output: string;
+  role: "alert" | "status";
+  tone: "error" | "neutral" | "success";
+};
+
 const diagramSources: Record<string, string> = {
   "channel-rendezvous": channelRendezvous,
   "context-tree": contextTree,
@@ -111,6 +119,8 @@ const codeBlockStyle: CSSProperties = {
   fontSize: "0.9rem",
   lineHeight: 1.75,
 };
+
+const idleRunState: RunState = { status: "idle" };
 
 function App() {
   const courseIndex = useMemo(buildCourseIndex, []);
@@ -494,9 +504,82 @@ function LessonPage({ record, courseIndex }: { record: LessonRecord; courseIndex
   const previousLesson = courseIndex.lessonRecords[record.sequence - 2];
   const nextLesson = courseIndex.lessonRecords[record.sequence];
   const { lesson } = record;
+  const [snippetRunStates, setSnippetRunStates] = useState<Record<string, RunState>>({});
+  const [activeSnippetTitle, setActiveSnippetTitle] = useState<string | null>(null);
+  const [isConsoleOpen, setIsConsoleOpen] = useState(false);
+  const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
+  const consoleId = useId();
+
+  useEffect(() => {
+    const abortControllers = abortControllersRef.current;
+
+    return () => {
+      abortControllers.forEach((controller) => controller.abort());
+      abortControllers.clear();
+    };
+  }, []);
+
+  const updateSnippetRunState = useCallback((snippetTitle: string, runState: RunState) => {
+    setSnippetRunStates((currentRunStates) => ({
+      ...currentRunStates,
+      [snippetTitle]: runState,
+    }));
+  }, []);
+
+  const handleRunSnippet = useCallback(
+    (snippetTitle: string, runnableCode: string) => {
+      abortControllersRef.current.get(snippetTitle)?.abort();
+
+      const controller = new AbortController();
+      abortControllersRef.current.set(snippetTitle, controller);
+      setActiveSnippetTitle(snippetTitle);
+      setIsConsoleOpen(true);
+      updateSnippetRunState(snippetTitle, { status: "running" });
+
+      void runGoSnippet(runnableCode, controller.signal)
+        .then((result) => {
+          if (abortControllersRef.current.get(snippetTitle) !== controller) {
+            return;
+          }
+
+          abortControllersRef.current.delete(snippetTitle);
+          updateSnippetRunState(snippetTitle, { result, status: "complete" });
+        })
+        .catch((error: unknown) => {
+          if (abortControllersRef.current.get(snippetTitle) !== controller) {
+            return;
+          }
+
+          abortControllersRef.current.delete(snippetTitle);
+
+          if (isAbortError(error)) {
+            return;
+          }
+
+          updateSnippetRunState(snippetTitle, {
+            message: error instanceof Error ? error.message : "Could not reach the Go Playground.",
+            status: "failed",
+          });
+        });
+    },
+    [updateSnippetRunState],
+  );
+
+  const handleOpenSnippetOutput = useCallback((snippetTitle: string) => {
+    setActiveSnippetTitle(snippetTitle);
+    setIsConsoleOpen(true);
+  }, []);
+
+  const handleCloseConsole = useCallback(() => {
+    setIsConsoleOpen(false);
+  }, []);
+
+  const activeRunState = activeSnippetTitle
+    ? (snippetRunStates[activeSnippetTitle] ?? idleRunState)
+    : idleRunState;
 
   return (
-    <article className="reader-page lesson-page">
+    <article className={`reader-page lesson-page ${isConsoleOpen ? "has-playground-console" : ""}`}>
       <Breadcrumbs
         items={[
           { label: "Overview", to: "/" },
@@ -544,7 +627,15 @@ function LessonPage({ record, courseIndex }: { record: LessonRecord; courseIndex
         <SectionHeader eyebrow="Code" title="Runnable examples" />
         <div className="code-example-list">
           {lesson.snippets.map((snippet) => (
-            <ExampleBlock key={snippet.title} snippet={snippet} />
+            <ExampleBlock
+              key={snippet.title}
+              consoleId={consoleId}
+              isConsoleActive={isConsoleOpen && activeSnippetTitle === snippet.title}
+              runState={snippetRunStates[snippet.title] ?? idleRunState}
+              snippet={snippet}
+              onOpenOutput={handleOpenSnippetOutput}
+              onRun={handleRunSnippet}
+            />
           ))}
         </div>
       </section>
@@ -559,6 +650,13 @@ function LessonPage({ record, courseIndex }: { record: LessonRecord; courseIndex
       </section>
 
       <LessonNavigation previousLesson={previousLesson} nextLesson={nextLesson} />
+      <PlaygroundConsole
+        consoleId={consoleId}
+        isOpen={isConsoleOpen}
+        runState={activeRunState}
+        snippetTitle={activeSnippetTitle}
+        onClose={handleCloseConsole}
+      />
     </article>
   );
 }
@@ -762,49 +860,38 @@ function GlossaryLinks({
   );
 }
 
-function ExampleBlock({ snippet }: { snippet: CodeExample }) {
+function ExampleBlock({
+  consoleId,
+  isConsoleActive,
+  onOpenOutput,
+  onRun,
+  runState,
+  snippet,
+}: {
+  consoleId: string;
+  isConsoleActive: boolean;
+  onOpenOutput: (snippetTitle: string) => void;
+  onRun: (snippetTitle: string, runnableCode: string) => void;
+  runState: RunState;
+  snippet: CodeExample;
+}) {
   const runnableCode = getRunnableSnippetCode(snippet);
   const displayCode = getSnippetDisplayCode(snippet, runnableCode);
-  const [runState, setRunState] = useState<RunState>({ status: "idle" });
-  const abortRef = useRef<AbortController | null>(null);
-  const outputId = useId();
-
-  useEffect(
-    () => () => {
-      abortRef.current?.abort();
-    },
-    [],
-  );
 
   const handleRun = useCallback(() => {
     if (!runnableCode) {
       return;
     }
 
-    abortRef.current?.abort();
+    onRun(snippet.title, runnableCode);
+  }, [onRun, runnableCode, snippet.title]);
 
-    const controller = new AbortController();
-    abortRef.current = controller;
-    setRunState({ status: "running" });
-
-    void runGoSnippet(runnableCode, controller.signal)
-      .then((result) => {
-        setRunState({ result, status: "complete" });
-      })
-      .catch((error: unknown) => {
-        if (isAbortError(error)) {
-          return;
-        }
-
-        setRunState({
-          message: error instanceof Error ? error.message : "Could not reach the Go Playground.",
-          status: "failed",
-        });
-      });
-  }, [runnableCode]);
+  const handleOpenOutput = useCallback(() => {
+    onOpenOutput(snippet.title);
+  }, [onOpenOutput, snippet.title]);
 
   return (
-    <section className="code-example">
+    <section className={`code-example ${isConsoleActive ? "is-console-active" : ""}`}>
       <div className="code-example-heading">
         <div>
           <h3>{snippet.title}</h3>
@@ -819,7 +906,8 @@ function ExampleBlock({ snippet }: { snippet: CodeExample }) {
             <button
               type="button"
               className="run-button"
-              aria-controls={outputId}
+              aria-controls={consoleId}
+              aria-expanded={isConsoleActive}
               disabled={runState.status === "running"}
               onClick={handleRun}
             >
@@ -829,50 +917,152 @@ function ExampleBlock({ snippet }: { snippet: CodeExample }) {
         </div>
       </div>
       <CodeBlock code={displayCode} />
-      <PlaygroundOutput outputId={outputId} runState={runState} />
+      <SnippetRunSummary
+        isConsoleActive={isConsoleActive}
+        runState={runState}
+        onOpenOutput={handleOpenOutput}
+      />
     </section>
   );
 }
 
-function PlaygroundOutput({ outputId, runState }: { outputId: string; runState: RunState }) {
+function SnippetRunSummary({
+  isConsoleActive,
+  onOpenOutput,
+  runState,
+}: {
+  isConsoleActive: boolean;
+  onOpenOutput: () => void;
+  runState: RunState;
+}) {
   if (runState.status === "idle") {
     return null;
   }
 
-  if (runState.status === "running") {
-    return (
-      <div id={outputId} className="playground-output" role="status" aria-live="polite">
-        <span>Running</span>
-        <pre>Waiting for the Go Playground...</pre>
-      </div>
-    );
-  }
+  const view = getRunStateView(runState);
 
-  if (runState.status === "failed") {
-    return (
-      <div
-        id={outputId}
-        className="playground-output playground-output-error"
-        role="alert"
-        aria-live="assertive"
-      >
-        <span>Request failed</span>
-        <pre>{runState.message}</pre>
-      </div>
-    );
+  return (
+    <div className={`snippet-run-summary snippet-run-summary-${view.tone}`}>
+      <span>{getSnippetRunSummaryLabel(runState)}</span>
+      <button type="button" onClick={onOpenOutput}>
+        {isConsoleActive ? "Console open" : "View console"}
+      </button>
+    </div>
+  );
+}
+
+function PlaygroundConsole({
+  consoleId,
+  isOpen,
+  onClose,
+  runState,
+  snippetTitle,
+}: {
+  consoleId: string;
+  isOpen: boolean;
+  onClose: () => void;
+  runState: RunState;
+  snippetTitle: string | null;
+}) {
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const view = getRunStateView(runState);
+
+  useEffect(() => {
+    if (!isOpen || !bodyRef.current) {
+      return;
+    }
+
+    bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
+  }, [isOpen, snippetTitle, view.output]);
+
+  if (!isOpen || !snippetTitle) {
+    return null;
   }
 
   return (
-    <div
-      id={outputId}
-      className={`playground-output playground-output-${runState.result.tone}`}
-      role="status"
-      aria-live="polite"
+    <aside
+      id={consoleId}
+      className={`playground-console playground-console-${view.tone}`}
+      aria-label={`Output for ${snippetTitle}`}
     >
-      <span>{runState.result.label}</span>
-      <pre>{runState.result.output}</pre>
-    </div>
+      <div className="playground-console-header">
+        <div className="playground-console-title">
+          <span>Console</span>
+          <h2>{snippetTitle}</h2>
+        </div>
+        <div className="playground-console-actions">
+          <span className="playground-console-status">{view.label}</span>
+          <button type="button" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </div>
+      <div
+        ref={bodyRef}
+        className="playground-console-body"
+        role={view.role}
+        aria-live={view.ariaLive}
+      >
+        <pre>{view.output}</pre>
+      </div>
+    </aside>
   );
+}
+
+function getRunStateView(runState: RunState): RunStateView {
+  if (runState.status === "running") {
+    return {
+      ariaLive: "polite",
+      label: "Running",
+      output: "Waiting for the Go Playground...",
+      role: "status",
+      tone: "neutral",
+    };
+  }
+
+  if (runState.status === "failed") {
+    return {
+      ariaLive: "assertive",
+      label: "Request failed",
+      output: runState.message,
+      role: "alert",
+      tone: "error",
+    };
+  }
+
+  if (runState.status === "complete") {
+    return {
+      ariaLive: runState.result.tone === "error" ? "assertive" : "polite",
+      label: runState.result.label,
+      output: runState.result.output,
+      role: runState.result.tone === "error" ? "alert" : "status",
+      tone: runState.result.tone,
+    };
+  }
+
+  return {
+    ariaLive: "polite",
+    label: "Console",
+    output: "Run a snippet to see output.",
+    role: "status",
+    tone: "neutral",
+  };
+}
+
+function getSnippetRunSummaryLabel(runState: RunState) {
+  if (runState.status === "running") {
+    return "Running in console";
+  }
+
+  if (runState.status === "failed") {
+    return "Request failed";
+  }
+
+  if (runState.status === "complete") {
+    return runState.result.tone === "error" ? "Run error in console" : "Output ready in console";
+  }
+
+  return "";
 }
 
 function isAbortError(error: unknown) {
