@@ -255,6 +255,14 @@ function CourseSidebar({
   courseIndex: CourseIndex;
   activeModuleId?: string;
 }) {
+  const outlineModules = useMemo(
+    () => courseParts.flatMap((part) => courseIndex.modulesByPartId.get(part.id) ?? []),
+    [courseIndex],
+  );
+  const activeModuleIndex = activeModuleId
+    ? outlineModules.findIndex((courseModule) => courseModule.id === activeModuleId)
+    : -1;
+
   return (
     <aside className="course-sidebar">
       <div className="sidebar-scroll">
@@ -266,58 +274,45 @@ function CourseSidebar({
         </Link>
 
         <nav aria-label="Course outline">
-          <NavLink
-            className={({ isActive }) => `sidebar-home ${isActive ? "is-active" : ""}`}
-            to="/"
-            end
-          >
-            Course overview
-          </NavLink>
+          <ol className="sidebar-module-list">
+            {outlineModules.map((courseModule, moduleIndex) => {
+              const isActive = activeModuleId === courseModule.id;
+              const isComplete = activeModuleIndex > moduleIndex;
+              const marker = isComplete ? "" : String(moduleIndex + 1);
 
-          <div className="sidebar-parts">
-            {courseParts.map((part, partIndex) => (
-              <div key={part.id} className="sidebar-part">
-                <NavLink
-                  className={({ isActive }) => `sidebar-part-link ${isActive ? "is-active" : ""}`}
-                  to={routeForPart(part.id)}
+              return (
+                <li
+                  key={courseModule.id}
+                  className={`sidebar-module-item ${isActive ? "is-active" : ""} ${
+                    isComplete ? "is-complete" : ""
+                  }`}
                 >
-                  <span>{String(partIndex + 1).padStart(2, "0")}</span>
-                  {part.title}
-                </NavLink>
+                  <Link className="sidebar-module-link" to={routeForModule(courseModule.id)}>
+                    <span className="sidebar-module-marker" aria-hidden="true">
+                      {marker}
+                    </span>
+                    <span className="sidebar-module-title">{courseModule.title}</span>
+                  </Link>
 
-                <div className="sidebar-modules">
-                  {(courseIndex.modulesByPartId.get(part.id) ?? []).map((courseModule) => (
-                    <div key={courseModule.id}>
-                      <Link
-                        className={`sidebar-module-link ${
-                          activeModuleId === courseModule.id ? "is-active" : ""
-                        }`}
-                        to={routeForModule(courseModule.id)}
-                      >
-                        {courseModule.title}
-                      </Link>
-
-                      {activeModuleId === courseModule.id ? (
-                        <div className="sidebar-lessons">
-                          {courseModule.lessons.map((lesson) => (
-                            <NavLink
-                              key={lesson.id}
-                              className={({ isActive }) =>
-                                `sidebar-lesson-link ${isActive ? "is-active" : ""}`
-                              }
-                              to={routeForLesson(lesson.id)}
-                            >
-                              {lesson.title}
-                            </NavLink>
-                          ))}
-                        </div>
-                      ) : null}
+                  {isActive ? (
+                    <div className="sidebar-lessons">
+                      {courseModule.lessons.map((lesson) => (
+                        <NavLink
+                          key={lesson.id}
+                          className={({ isActive: isLessonActive }) =>
+                            `sidebar-lesson-link ${isLessonActive ? "is-active" : ""}`
+                          }
+                          to={routeForLesson(lesson.id)}
+                        >
+                          {lesson.title}
+                        </NavLink>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ol>
         </nav>
       </div>
     </aside>
