@@ -1,4 +1,4 @@
-import type { CodeExample } from "./course";
+import type { CodeExample } from "./courseTypes";
 import { runnableSnippetPrograms } from "./snippetRunners";
 
 export const playgroundCompileUrl = "https://play.golang.org/compile";

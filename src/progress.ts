@@ -1,6 +1,8 @@
-import type { CourseModule } from "./course";
+import type { CourseModule } from "./courseTypes";
 
-export const lessonProgressStorageKey = "learn-go:completed-lessons:v1";
+export function lessonProgressStorageKey(courseId: string) {
+  return `learn-go:${courseId}:completed-lessons:v1`;
+}
 
 export function parseCompletedLessonIds(
   rawValue: string | null,

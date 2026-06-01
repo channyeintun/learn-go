@@ -6,40 +6,31 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type ReactNode,
 } from "react";
-import { Link, NavLink, Route, Routes, useLocation, useParams, type To } from "react-router";
+import {
+  Link,
+  NavLink,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useParams,
+  type To,
+} from "react-router";
 import { PrismLight as SyntaxHighlighter } from "react-syntax-highlighter";
 import go from "react-syntax-highlighter/dist/esm/languages/prism/go";
 import oneDark from "react-syntax-highlighter/dist/esm/styles/prism/one-dark";
-import channelRendezvous from "./assets/diagrams/channel-rendezvous.png";
-import contextTree from "./assets/diagrams/context-tree.png";
-import errorChain from "./assets/diagrams/error-chain.png";
-import goroutineStacks from "./assets/diagrams/goroutine-stacks.png";
-import explicitPointer from "./assets/diagrams/explicit-pointer.png";
-import interfaceValue from "./assets/diagrams/interface-value.png";
-import iteratorYield from "./assets/diagrams/iterator-yield.png";
-import mapIteration from "./assets/diagrams/map-iteration.png";
-import operatorPrecedence from "./assets/diagrams/operator-precedence.webp";
-import readerWriter from "./assets/diagrams/reader-writer.png";
-import schedulerMpg from "./assets/diagrams/scheduler-mpg.png";
-import sliceHeader from "./assets/diagrams/slice-header.png";
-import sourceFile from "./assets/diagrams/source-file.png";
-import stringRunes from "./assets/diagrams/string-runes.png";
-import structPadding from "./assets/diagrams/struct-padding.png";
-import {
-  cheatSheet,
-  courseMeta,
-  courseModules,
-  courseParts,
-  diagrams,
-  glossary,
-  type CodeExample,
-  type CourseModule,
-  type CoursePart,
-  type DiagramAsset,
-  type GlossaryTerm,
-  type Lesson,
-} from "./course";
+import { courseSummaries, defaultCourseId, hasCourse, loadCourse } from "./courses";
+import type {
+  CodeExample,
+  CourseContent,
+  CourseModule,
+  CoursePart,
+  DiagramAsset,
+  GlossaryTerm,
+  Lesson,
+} from "./courseTypes";
 import {
   getRunnableSnippetCode,
   getSnippetDisplayCode,
@@ -57,7 +48,14 @@ SyntaxHighlighter.registerLanguage("go", go);
 
 const GO_LOGO_URL = "https://go.dev/blog/go-brand/Go-Logo/PNG/Go-Logo_Blue.png";
 
+const diagramSourceModules = import.meta.glob("./assets/diagrams/*.{png,webp}", {
+  eager: true,
+  import: "default",
+  query: "?url",
+}) as Record<string, string>;
+
 type CourseIndex = {
+  course: CourseContent;
   partsById: ReadonlyMap<string, CoursePart>;
   modulesById: ReadonlyMap<string, CourseModule>;
   modulesByPartId: ReadonlyMap<string, CourseModule[]>;
@@ -100,25 +98,31 @@ type RunStateView = {
   tone: "error" | "neutral" | "success";
 };
 
-const diagramSources: Record<string, string> = {
-  "channel-rendezvous": channelRendezvous,
-  "context-tree": contextTree,
-  "error-chain": errorChain,
-  "goroutine-stacks": goroutineStacks,
-  "explicit-pointer": explicitPointer,
-  "interface-value": interfaceValue,
-  "iterator-yield": iteratorYield,
-  "map-iteration": mapIteration,
-  "operator-precedence": operatorPrecedence,
-  "reader-writer": readerWriter,
-  "scheduler-mpg": schedulerMpg,
-  "slice-header": sliceHeader,
-  "source-file": sourceFile,
-  "string-runes": stringRunes,
-  "struct-padding": structPadding,
-};
+type CourseLoadState =
+  | {
+      courseId: string;
+      status: "loading";
+    }
+  | {
+      courseId: string;
+      courseIndex: CourseIndex;
+      status: "loaded";
+    }
+  | {
+      courseId: string;
+      message: string;
+      status: "failed";
+    };
 
-const generatedDiagramCount = new Set(Object.values(diagramSources)).size;
+const diagramSources = Object.fromEntries(
+  Object.entries(diagramSourceModules)
+    .map(([assetPath, source]) => [assetPath.match(/\/([^/]+)\.(?:png|webp)$/)?.[1], source])
+    .filter((entry): entry is [string, string] => Boolean(entry[0])),
+);
+
+function countAvailableDiagrams(course: CourseContent) {
+  return course.diagrams.filter((diagram) => Boolean(diagramSources[diagram.id])).length;
+}
 
 const codeBlockStyle: CSSProperties = {
   margin: 0,
@@ -133,17 +137,104 @@ const codeBlockStyle: CSSProperties = {
 const idleRunState: RunState = { status: "idle" };
 
 function App() {
-  const courseIndex = useMemo(buildCourseIndex, []);
+  const location = useLocation();
+  const routeCourseId = getRouteCourseId(location.pathname);
+  const activeCourseId = routeCourseId ?? defaultCourseId;
+  const routeCourseIsUnknown = Boolean(routeCourseId && !hasCourse(routeCourseId));
+  const [courseLoadState, setCourseLoadState] = useState<CourseLoadState>({
+    courseId: activeCourseId,
+    status: "loading",
+  });
+
+  useEffect(() => {
+    if (routeCourseIsUnknown) {
+      return;
+    }
+
+    let isCurrent = true;
+    setCourseLoadState((currentState) =>
+      currentState.courseId === activeCourseId && currentState.status === "loaded"
+        ? currentState
+        : { courseId: activeCourseId, status: "loading" },
+    );
+
+    void loadCourse(activeCourseId)
+      .then((course) => {
+        if (!isCurrent) {
+          return;
+        }
+
+        if (!course) {
+          setCourseLoadState({
+            courseId: activeCourseId,
+            message: `Course ${activeCourseId} is not available.`,
+            status: "failed",
+          });
+          return;
+        }
+
+        setCourseLoadState({
+          courseId: activeCourseId,
+          courseIndex: buildCourseIndex(course),
+          status: "loaded",
+        });
+      })
+      .catch((error: unknown) => {
+        if (!isCurrent) {
+          return;
+        }
+
+        setCourseLoadState({
+          courseId: activeCourseId,
+          message: error instanceof Error ? error.message : "Could not load the course.",
+          status: "failed",
+        });
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [activeCourseId, routeCourseIsUnknown]);
+
+  if (routeCourseIsUnknown) {
+    return <StaticCourseFrame activeCourseId={defaultCourseId} body={<NotFoundPage />} />;
+  }
+
+  if (courseLoadState.status !== "loaded" || courseLoadState.courseId !== activeCourseId) {
+    return (
+      <StaticCourseFrame
+        activeCourseId={activeCourseId}
+        body={
+          courseLoadState.status === "failed" && courseLoadState.courseId === activeCourseId ? (
+            <CourseLoadFailedPage message={courseLoadState.message} />
+          ) : (
+            <CourseLoadingPage />
+          )
+        }
+      />
+    );
+  }
+
+  return (
+    <CourseExperience
+      key={courseLoadState.courseIndex.course.meta.id}
+      courseIndex={courseLoadState.courseIndex}
+    />
+  );
+}
+
+function CourseExperience({ courseIndex }: { courseIndex: CourseIndex }) {
   const { completedLessonIds, markLessonComplete } = useLessonProgress(courseIndex);
   const location = useLocation();
   const activeModuleId = getActiveModuleId(location.pathname, courseIndex);
+  const courseId = courseIndex.course.meta.id;
 
   return (
     <div className="site-shell min-h-screen bg-canvas text-ink">
       <ScrollToTop />
       <header className="site-header">
         <div className="header-inner">
-          <Link to="/" className="brand-link header-brand-link">
+          <Link to={routeForCourse(courseId)} className="brand-link header-brand-link">
             <span className="brand-mark" aria-hidden="true">
               <img src={GO_LOGO_URL} alt="" />
             </span>
@@ -153,17 +244,31 @@ function App() {
           </Link>
 
           <div className="header-actions">
+            <CourseSwitcher activeCourseId={courseId} />
             <nav className="top-nav" aria-label="Reference pages">
-              <NavLink className={({ isActive }) => (isActive ? "is-active" : "")} to="/" end>
+              <NavLink
+                className={({ isActive }) => (isActive ? "is-active" : "")}
+                to={routeForCourse(courseId)}
+                end
+              >
                 Course
               </NavLink>
-              <NavLink className={({ isActive }) => (isActive ? "is-active" : "")} to="/diagrams">
+              <NavLink
+                className={({ isActive }) => (isActive ? "is-active" : "")}
+                to={routeForDiagrams(courseId)}
+              >
                 Diagrams
               </NavLink>
-              <NavLink className={({ isActive }) => (isActive ? "is-active" : "")} to="/glossary">
+              <NavLink
+                className={({ isActive }) => (isActive ? "is-active" : "")}
+                to={routeForGlossary(courseId)}
+              >
                 Glossary
               </NavLink>
-              <NavLink className={({ isActive }) => (isActive ? "is-active" : "")} to="/cheatsheet">
+              <NavLink
+                className={({ isActive }) => (isActive ? "is-active" : "")}
+                to={routeForCheatSheet(courseId)}
+              >
                 Cheat sheet
               </NavLink>
             </nav>
@@ -181,18 +286,56 @@ function App() {
         <div className="course-main">
           <MobileCourseIndex courseIndex={courseIndex} activeModuleId={activeModuleId} />
           <Routes>
-            <Route index element={<OverviewPage courseIndex={courseIndex} />} />
-            <Route path="parts/:partId" element={<PartRoute courseIndex={courseIndex} />} />
-            <Route path="modules/:moduleId" element={<ModuleRoute courseIndex={courseIndex} />} />
+            <Route index element={<Navigate to={routeForCourse(defaultCourseId)} replace />} />
+            <Route
+              path="parts/:partId"
+              element={<LegacyPartRedirect routeFor={(partId) => routeForPart(courseId, partId)} />}
+            />
+            <Route
+              path="modules/:moduleId"
+              element={
+                <LegacyPartRedirect routeFor={(moduleId) => routeForModule(courseId, moduleId)} />
+              }
+            />
             <Route
               path="lessons/:lessonId"
+              element={
+                <LegacyPartRedirect routeFor={(lessonId) => routeForLesson(courseId, lessonId)} />
+              }
+            />
+            <Route path="diagrams" element={<Navigate to={routeForDiagrams(courseId)} replace />} />
+            <Route path="glossary" element={<Navigate to={routeForGlossary(courseId)} replace />} />
+            <Route
+              path="cheatsheet"
+              element={<Navigate to={routeForCheatSheet(courseId)} replace />}
+            />
+            <Route path="courses/:courseId" element={<OverviewPage courseIndex={courseIndex} />} />
+            <Route
+              path="courses/:courseId/parts/:partId"
+              element={<PartRoute courseIndex={courseIndex} />}
+            />
+            <Route
+              path="courses/:courseId/modules/:moduleId"
+              element={<ModuleRoute courseIndex={courseIndex} />}
+            />
+            <Route
+              path="courses/:courseId/lessons/:lessonId"
               element={
                 <LessonRoute courseIndex={courseIndex} onCompleteLesson={markLessonComplete} />
               }
             />
-            <Route path="diagrams" element={<DiagramsPage />} />
-            <Route path="glossary" element={<GlossaryPage />} />
-            <Route path="cheatsheet" element={<CheatSheetPage />} />
+            <Route
+              path="courses/:courseId/diagrams"
+              element={<DiagramsPage courseIndex={courseIndex} />}
+            />
+            <Route
+              path="courses/:courseId/glossary"
+              element={<GlossaryPage courseIndex={courseIndex} />}
+            />
+            <Route
+              path="courses/:courseId/cheatsheet"
+              element={<CheatSheetPage courseIndex={courseIndex} />}
+            />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </div>
@@ -201,14 +344,70 @@ function App() {
   );
 }
 
+function StaticCourseFrame({ activeCourseId, body }: { activeCourseId: string; body: ReactNode }) {
+  return (
+    <div className="site-shell min-h-screen bg-canvas text-ink">
+      <ScrollToTop />
+      <header className="site-header">
+        <div className="header-inner">
+          <Link to={routeForCourse(activeCourseId)} className="brand-link header-brand-link">
+            <span className="brand-mark" aria-hidden="true">
+              <img src={GO_LOGO_URL} alt="" />
+            </span>
+            <span>
+              <span className="brand-title">Learn Go</span>
+            </span>
+          </Link>
+
+          <div className="header-actions">
+            <CourseSwitcher activeCourseId={activeCourseId} />
+          </div>
+        </div>
+      </header>
+
+      <main className="course-layout">
+        <div className="course-main">{body}</div>
+      </main>
+    </div>
+  );
+}
+
+function CourseLoadingPage() {
+  return (
+    <article className="reader-page">
+      <header className="reader-header">
+        <p className="eyebrow">Loading</p>
+        <h1>Loading course content.</h1>
+        <p className="lede">The selected course is being loaded.</p>
+      </header>
+    </article>
+  );
+}
+
+function CourseLoadFailedPage({ message }: { message: string }) {
+  return (
+    <article className="reader-page">
+      <header className="reader-header">
+        <p className="eyebrow">Load failed</p>
+        <h1>Could not load this course.</h1>
+        <p className="lede">{message}</p>
+      </header>
+      <Link className="primary-button" to={routeForCourse(defaultCourseId)}>
+        Go to overview
+      </Link>
+    </article>
+  );
+}
+
 function useLessonProgress(courseIndex: CourseIndex) {
+  const courseId = courseIndex.course.meta.id;
   const orderedLessonIds = useMemo(
     () => courseIndex.lessonRecords.map((record) => record.lesson.id),
     [courseIndex],
   );
   const validLessonIds = useMemo(() => new Set(orderedLessonIds), [orderedLessonIds]);
   const [storedCompletedLessonIds, setStoredCompletedLessonIds] = useState(() =>
-    readStoredCompletedLessonIds(orderedLessonIds),
+    readStoredCompletedLessonIds(courseId, orderedLessonIds),
   );
   const completedLessonIds = useMemo(
     () => new Set(storedCompletedLessonIds),
@@ -216,8 +415,8 @@ function useLessonProgress(courseIndex: CourseIndex) {
   );
 
   useEffect(() => {
-    writeStoredCompletedLessonIds(storedCompletedLessonIds);
-  }, [storedCompletedLessonIds]);
+    writeStoredCompletedLessonIds(courseId, storedCompletedLessonIds);
+  }, [courseId, storedCompletedLessonIds]);
 
   const markLessonComplete = useCallback(
     (lessonId: string) => {
@@ -231,14 +430,14 @@ function useLessonProgress(courseIndex: CourseIndex) {
   return { completedLessonIds, markLessonComplete };
 }
 
-function readStoredCompletedLessonIds(orderedLessonIds: readonly string[]) {
+function readStoredCompletedLessonIds(courseId: string, orderedLessonIds: readonly string[]) {
   if (typeof window === "undefined") {
     return [];
   }
 
   try {
     return parseCompletedLessonIds(
-      window.localStorage.getItem(lessonProgressStorageKey),
+      window.localStorage.getItem(lessonProgressStorageKey(courseId)),
       orderedLessonIds,
     );
   } catch {
@@ -246,27 +445,32 @@ function readStoredCompletedLessonIds(orderedLessonIds: readonly string[]) {
   }
 }
 
-function writeStoredCompletedLessonIds(completedLessonIds: readonly string[]) {
+function writeStoredCompletedLessonIds(courseId: string, completedLessonIds: readonly string[]) {
   if (typeof window === "undefined") {
     return;
   }
 
   try {
-    window.localStorage.setItem(lessonProgressStorageKey, JSON.stringify(completedLessonIds));
+    window.localStorage.setItem(
+      lessonProgressStorageKey(courseId),
+      JSON.stringify(completedLessonIds),
+    );
   } catch {
     // Local storage can be unavailable in private mode or strict browser settings.
   }
 }
 
-function buildCourseIndex(): CourseIndex {
-  const partsById = new Map(courseParts.map((part) => [part.id, part]));
-  const modulesById = new Map(courseModules.map((courseModule) => [courseModule.id, courseModule]));
-  const diagramsById = new Map(diagrams.map((diagram) => [diagram.id, diagram]));
-  const glossaryById = new Map(glossary.map((term) => [term.id, term]));
+function buildCourseIndex(course: CourseContent): CourseIndex {
+  const partsById = new Map(course.parts.map((part) => [part.id, part]));
+  const modulesById = new Map(
+    course.modules.map((courseModule) => [courseModule.id, courseModule]),
+  );
+  const diagramsById = new Map(course.diagrams.map((diagram) => [diagram.id, diagram]));
+  const glossaryById = new Map(course.glossary.map((term) => [term.id, term]));
   const modulesByPartId = new Map<string, CourseModule[]>();
   const lessonRecords: LessonRecord[] = [];
 
-  for (const part of courseParts) {
+  for (const part of course.parts) {
     const partModules = part.moduleIds
       .map((moduleId) => modulesById.get(moduleId))
       .filter((courseModule): courseModule is CourseModule => Boolean(courseModule));
@@ -286,6 +490,7 @@ function buildCourseIndex(): CourseIndex {
   }
 
   return {
+    course,
     partsById,
     modulesById,
     modulesByPartId,
@@ -294,6 +499,27 @@ function buildCourseIndex(): CourseIndex {
     lessonRecords,
     lessonsById: new Map(lessonRecords.map((record) => [record.lesson.id, record])),
   };
+}
+
+function getRouteCourseId(pathname: string) {
+  const [, section, courseId] = pathname.split("/");
+  return section === "courses" && courseId ? decodeURIComponent(courseId) : undefined;
+}
+
+function CourseSwitcher({ activeCourseId }: { activeCourseId: string }) {
+  return (
+    <nav className="course-switcher" aria-label="Courses">
+      {courseSummaries.map((course) => (
+        <Link
+          key={course.id}
+          className={course.id === activeCourseId ? "is-active" : undefined}
+          to={routeForCourse(course.id)}
+        >
+          {course.shortTitle}
+        </Link>
+      ))}
+    </nav>
+  );
 }
 
 function ScrollToTop() {
@@ -307,7 +533,9 @@ function ScrollToTop() {
 }
 
 function getActiveModuleId(pathname: string, courseIndex: CourseIndex) {
-  const [, section, id] = pathname.split("/");
+  const segments = pathname.split("/");
+  const section = segments[1] === "courses" ? segments[3] : segments[1];
+  const id = segments[1] === "courses" ? segments[4] : segments[2];
 
   if (section === "modules" && id) {
     return decodeURIComponent(id);
@@ -352,6 +580,12 @@ function LessonRoute({
   );
 }
 
+function LegacyPartRedirect({ routeFor }: { routeFor: (id: string) => To }) {
+  const { partId, moduleId, lessonId } = useParams();
+  const id = partId ?? moduleId ?? lessonId;
+  return id ? <Navigate to={routeFor(id)} replace /> : <NotFoundPage />;
+}
+
 function CourseSidebar({
   courseIndex,
   activeModuleId,
@@ -362,14 +596,16 @@ function CourseSidebar({
   completedLessonIds: ReadonlySet<string>;
 }) {
   const outlineModules = useMemo(
-    () => courseParts.flatMap((part) => courseIndex.modulesByPartId.get(part.id) ?? []),
+    () =>
+      courseIndex.course.parts.flatMap((part) => courseIndex.modulesByPartId.get(part.id) ?? []),
     [courseIndex],
   );
+  const courseId = courseIndex.course.meta.id;
 
   return (
     <aside className="course-sidebar">
       <div className="sidebar-scroll">
-        <Link to="/" className="sidebar-course-title">
+        <Link to={routeForCourse(courseId)} className="sidebar-course-title">
           <span className="brand-mark" aria-hidden="true">
             <img src={GO_LOGO_URL} alt="" />
           </span>
@@ -395,7 +631,7 @@ function CourseSidebar({
                   <Link
                     className="sidebar-module-link"
                     aria-label={`${courseModule.title}${isComplete ? ", complete" : ""}`}
-                    to={routeForModule(courseModule.id)}
+                    to={routeForModule(courseId, courseModule.id)}
                   >
                     <span className="sidebar-module-marker" aria-hidden="true">
                       {marker}
@@ -411,7 +647,7 @@ function CourseSidebar({
                           className={({ isActive: isLessonActive }) =>
                             `sidebar-lesson-link ${isLessonActive ? "is-active" : ""}`
                           }
-                          to={routeForLesson(lesson.id)}
+                          to={routeForLesson(courseId, lesson.id)}
                         >
                           {lesson.title}
                         </NavLink>
@@ -435,13 +671,15 @@ function MobileCourseIndex({
   courseIndex: CourseIndex;
   activeModuleId?: string;
 }) {
+  const courseId = courseIndex.course.meta.id;
+
   return (
     <details className="mobile-course-index">
       <summary>Course outline</summary>
       <div className="mobile-course-index-body">
-        {courseParts.map((part) => (
+        {courseIndex.course.parts.map((part) => (
           <div key={part.id}>
-            <Link className="mobile-part-link" to={routeForPart(part.id)}>
+            <Link className="mobile-part-link" to={routeForPart(courseId, part.id)}>
               {part.title}
             </Link>
             <div>
@@ -451,7 +689,7 @@ function MobileCourseIndex({
                   className={`mobile-module-link ${
                     activeModuleId === courseModule.id ? "is-active" : ""
                   }`}
-                  to={routeForModule(courseModule.id)}
+                  to={routeForModule(courseId, courseModule.id)}
                 >
                   {courseModule.title}
                 </Link>
@@ -466,37 +704,42 @@ function MobileCourseIndex({
 
 function OverviewPage({ courseIndex }: { courseIndex: CourseIndex }) {
   const firstLesson = courseIndex.lessonRecords[0];
+  const { course } = courseIndex;
+  const courseId = course.meta.id;
 
   return (
     <article className="reader-page overview-page">
       <section className="course-hero">
         <p className="eyebrow">Tutorials /</p>
-        <h1>Learn Go</h1>
+        <h1>{course.meta.title}</h1>
+        <p className="lede">{course.meta.summary}</p>
 
         <div className="stat-strip" aria-label="Course summary">
-          <SummaryStat label="Parts" value={String(courseParts.length)} />
-          <SummaryStat label="Modules" value={String(courseModules.length)} />
+          <SummaryStat label="Parts" value={String(course.parts.length)} />
+          <SummaryStat label="Modules" value={String(course.modules.length)} />
           <SummaryStat label="Lessons" value={String(courseIndex.lessonRecords.length)} />
-          <SummaryStat label="Target" value={courseMeta.targetGoVersion} />
-          <SummaryStat label="Diagrams" value={String(generatedDiagramCount)} />
+          <SummaryStat label="Target" value={course.meta.target} />
+          <SummaryStat label="Diagrams" value={String(countAvailableDiagrams(course))} />
         </div>
 
-        <p className="fine-print">{courseMeta.targetGoVersionDetail}</p>
-        <p className="fine-print">
-          If this course feels hard to digest, try{" "}
-          <a href="https://go.dev/tour/welcome/1" target="_blank" rel="noreferrer">
-            A Tour of Go
-          </a>{" "}
-          first.
-        </p>
+        <p className="fine-print">{course.meta.targetDetail}</p>
+        {courseId === defaultCourseId ? (
+          <p className="fine-print">
+            If this course feels hard to digest, try{" "}
+            <a href="https://go.dev/tour/welcome/1" target="_blank" rel="noreferrer">
+              A Tour of Go
+            </a>{" "}
+            first.
+          </p>
+        ) : null}
 
         <div className="action-row">
           {firstLesson ? (
-            <Link className="primary-button" to={routeForLesson(firstLesson.lesson.id)}>
+            <Link className="primary-button" to={routeForLesson(courseId, firstLesson.lesson.id)}>
               Start first lesson
             </Link>
           ) : null}
-          <Link className="secondary-button" to="/diagrams">
+          <Link className="secondary-button" to={routeForDiagrams(courseId)}>
             View diagrams
           </Link>
         </div>
@@ -506,12 +749,13 @@ function OverviewPage({ courseIndex }: { courseIndex: CourseIndex }) {
         <SectionHeader eyebrow="Reading path" title="Course contents" />
 
         <div className="part-list">
-          {courseParts.map((part, index) => (
+          {course.parts.map((part, index) => (
             <PartOutline
               key={part.id}
               part={part}
               partIndex={index}
               modules={courseIndex.modulesByPartId.get(part.id) ?? []}
+              courseId={courseId}
             />
           ))}
         </div>
@@ -522,10 +766,13 @@ function OverviewPage({ courseIndex }: { courseIndex: CourseIndex }) {
 
 function PartPage({ part, courseIndex }: { part: CoursePart; courseIndex: CourseIndex }) {
   const modules = courseIndex.modulesByPartId.get(part.id) ?? [];
+  const courseId = courseIndex.course.meta.id;
 
   return (
     <article className="reader-page">
-      <Breadcrumbs items={[{ label: "Overview", to: "/" }, { label: part.title }]} />
+      <Breadcrumbs
+        items={[{ label: "Overview", to: routeForCourse(courseId) }, { label: part.title }]}
+      />
 
       <header className="reader-header">
         <p className="eyebrow">Course part</p>
@@ -538,7 +785,7 @@ function PartPage({ part, courseIndex }: { part: CoursePart; courseIndex: Course
 
         <div className="module-row-list">
           {modules.map((courseModule) => (
-            <ModuleRow key={courseModule.id} courseModule={courseModule} />
+            <ModuleRow key={courseModule.id} courseId={courseId} courseModule={courseModule} />
           ))}
         </div>
       </section>
@@ -554,13 +801,14 @@ function ModulePage({
   courseIndex: CourseIndex;
 }) {
   const part = courseIndex.partsById.get(courseModule.partId);
+  const courseId = courseIndex.course.meta.id;
 
   return (
     <article className="reader-page">
       <Breadcrumbs
         items={[
-          { label: "Overview", to: "/" },
-          part ? { label: part.title, to: routeForPart(part.id) } : undefined,
+          { label: "Overview", to: routeForCourse(courseId) },
+          part ? { label: part.title, to: routeForPart(courseId, part.id) } : undefined,
           { label: courseModule.title },
         ]}
       />
@@ -577,7 +825,11 @@ function ModulePage({
       <div className="module-overview">
         <InfoList title="Prerequisites" items={courseModule.prerequisites} />
         <InfoList title="Outcomes" items={courseModule.outcomes} />
-        <GlossaryLinks courseModule={courseModule} glossaryById={courseIndex.glossaryById} />
+        <GlossaryLinks
+          courseId={courseId}
+          courseModule={courseModule}
+          glossaryById={courseIndex.glossaryById}
+        />
       </div>
 
       <section className="page-section">
@@ -586,7 +838,7 @@ function ModulePage({
         <ol className="lesson-row-list">
           {courseModule.lessons.map((lesson, index) => (
             <li key={lesson.id}>
-              <Link to={routeForLesson(lesson.id)} className="lesson-row">
+              <Link to={routeForLesson(courseId, lesson.id)} className="lesson-row">
                 <span className="row-index">{String(index + 1).padStart(2, "0")}</span>
                 <span>
                   <span className="row-title">{lesson.title}</span>
@@ -613,6 +865,7 @@ function LessonPage({
   const previousLesson = courseIndex.lessonRecords[record.sequence - 2];
   const nextLesson = courseIndex.lessonRecords[record.sequence];
   const { lesson } = record;
+  const courseId = courseIndex.course.meta.id;
   const [snippetRunStates, setSnippetRunStates] = useState<Record<string, RunState>>({});
   const [activeSnippetTitle, setActiveSnippetTitle] = useState<string | null>(null);
   const [isConsoleOpen, setIsConsoleOpen] = useState(false);
@@ -695,9 +948,9 @@ function LessonPage({
     <article className={`reader-page lesson-page ${isConsoleOpen ? "has-playground-console" : ""}`}>
       <Breadcrumbs
         items={[
-          { label: "Overview", to: "/" },
-          { label: record.part.title, to: routeForPart(record.part.id) },
-          { label: record.module.title, to: routeForModule(record.module.id) },
+          { label: "Overview", to: routeForCourse(courseId) },
+          { label: record.part.title, to: routeForPart(courseId, record.part.id) },
+          { label: record.module.title, to: routeForModule(courseId, record.module.id) },
           { label: lesson.title },
         ]}
       />
@@ -763,6 +1016,7 @@ function LessonPage({
       </section>
 
       <LessonNavigation
+        courseId={courseId}
         previousLesson={previousLesson}
         nextLesson={nextLesson}
         onCompleteLesson={handleCompleteLesson}
@@ -778,12 +1032,12 @@ function LessonPage({
   );
 }
 
-function DiagramsPage() {
+function DiagramsPage({ courseIndex }: { courseIndex: CourseIndex }) {
   return (
     <article className="reader-page">
       <header className="reader-header">
         <p className="eyebrow">Visual library</p>
-        <h1>Generated hand-drawn teaching pictures</h1>
+        <h1>{courseIndex.course.meta.shortTitle} hand-drawn teaching pictures</h1>
         <p className="lede">
           These project assets are generated bitmap diagrams saved under src/assets/diagrams and
           referenced by the lesson data.
@@ -791,7 +1045,7 @@ function DiagramsPage() {
       </header>
 
       <div className="diagram-gallery">
-        {diagrams
+        {courseIndex.course.diagrams
           .filter((diagram) => diagramSources[diagram.id])
           .map((diagram) => (
             <DiagramFigure key={diagram.id} diagram={diagram} />
@@ -801,7 +1055,7 @@ function DiagramsPage() {
   );
 }
 
-function GlossaryPage() {
+function GlossaryPage({ courseIndex }: { courseIndex: CourseIndex }) {
   return (
     <article className="reader-page">
       <header className="reader-header">
@@ -811,7 +1065,7 @@ function GlossaryPage() {
       </header>
 
       <dl className="glossary-list">
-        {glossary.map((term) => (
+        {courseIndex.course.glossary.map((term) => (
           <div key={term.id}>
             <dt>{term.term}</dt>
             <dd>{term.definition}</dd>
@@ -822,7 +1076,7 @@ function GlossaryPage() {
   );
 }
 
-function CheatSheetPage() {
+function CheatSheetPage({ courseIndex }: { courseIndex: CourseIndex }) {
   return (
     <article className="reader-page">
       <header className="reader-header">
@@ -832,7 +1086,7 @@ function CheatSheetPage() {
       </header>
 
       <div className="cheatsheet-list">
-        {cheatSheet.map((item) => (
+        {courseIndex.course.cheatSheet.map((item) => (
           <section key={item.title} className="cheatsheet-item">
             <div>
               <div className="inline-heading">
@@ -857,7 +1111,7 @@ function NotFoundPage() {
         <h1>This course page is not available.</h1>
         <p className="lede">Return to the overview and choose a module from the course outline.</p>
       </header>
-      <Link className="primary-button" to="/">
+      <Link className="primary-button" to={routeForCourse(defaultCourseId)}>
         Go to overview
       </Link>
     </article>
@@ -865,10 +1119,12 @@ function NotFoundPage() {
 }
 
 function PartOutline({
+  courseId,
   part,
   partIndex,
   modules,
 }: {
+  courseId: string;
   part: CoursePart;
   partIndex: number;
   modules: CourseModule[];
@@ -879,7 +1135,7 @@ function PartOutline({
         <p className="outline-number">{String(partIndex + 1).padStart(2, "0")}</p>
         <div>
           <h3>
-            <Link to={routeForPart(part.id)}>{part.title}</Link>
+            <Link to={routeForPart(courseId, part.id)}>{part.title}</Link>
           </h3>
           <p>{part.summary}</p>
         </div>
@@ -887,16 +1143,16 @@ function PartOutline({
 
       <div className="module-row-list">
         {modules.map((courseModule) => (
-          <ModuleRow key={courseModule.id} courseModule={courseModule} />
+          <ModuleRow key={courseModule.id} courseId={courseId} courseModule={courseModule} />
         ))}
       </div>
     </section>
   );
 }
 
-function ModuleRow({ courseModule }: { courseModule: CourseModule }) {
+function ModuleRow({ courseId, courseModule }: { courseId: string; courseModule: CourseModule }) {
   return (
-    <Link className="module-row" to={routeForModule(courseModule.id)}>
+    <Link className="module-row" to={routeForModule(courseId, courseModule.id)}>
       <span className="row-kicker">{courseModule.stage}</span>
       <span>
         <span className="row-title">{courseModule.title}</span>
@@ -908,10 +1164,12 @@ function ModuleRow({ courseModule }: { courseModule: CourseModule }) {
 }
 
 function LessonNavigation({
+  courseId,
   previousLesson,
   nextLesson,
   onCompleteLesson,
 }: {
+  courseId: string;
   previousLesson?: LessonRecord;
   nextLesson?: LessonRecord;
   onCompleteLesson: () => void;
@@ -919,7 +1177,7 @@ function LessonNavigation({
   return (
     <nav className="lesson-nav" aria-label="Lesson navigation">
       {previousLesson ? (
-        <Link to={routeForLesson(previousLesson.lesson.id)}>
+        <Link to={routeForLesson(courseId, previousLesson.lesson.id)}>
           <span>Previous</span>
           {previousLesson.lesson.title}
         </Link>
@@ -927,7 +1185,7 @@ function LessonNavigation({
         <span />
       )}
       {nextLesson ? (
-        <Link to={routeForLesson(nextLesson.lesson.id)} onClick={onCompleteLesson}>
+        <Link to={routeForLesson(courseId, nextLesson.lesson.id)} onClick={onCompleteLesson}>
           <span>Next</span>
           {nextLesson.lesson.title}
         </Link>
@@ -956,9 +1214,11 @@ function Breadcrumbs({ items }: { items: Array<BreadcrumbItem | undefined> }) {
 }
 
 function GlossaryLinks({
+  courseId,
   courseModule,
   glossaryById,
 }: {
+  courseId: string;
   courseModule: CourseModule;
   glossaryById: ReadonlyMap<string, GlossaryTerm>;
 }) {
@@ -969,7 +1229,12 @@ function GlossaryLinks({
         {courseModule.glossaryIds.map((termId) => {
           const term = glossaryById.get(termId);
           return term ? (
-            <Link key={termId} to="/glossary" className="term-chip" title={term.definition}>
+            <Link
+              key={termId}
+              to={routeForGlossary(courseId)}
+              className="term-chip"
+              title={term.definition}
+            >
               {term.term}
             </Link>
           ) : null;
@@ -1322,16 +1587,32 @@ function CodeBlock({ code, compact = false }: { code: string; compact?: boolean 
   );
 }
 
-function routeForPart(partId: string) {
-  return `/parts/${encodeURIComponent(partId)}`;
+function routeForCourse(courseId: string) {
+  return `/courses/${encodeURIComponent(courseId)}`;
 }
 
-function routeForModule(moduleId: string) {
-  return `/modules/${encodeURIComponent(moduleId)}`;
+function routeForPart(courseId: string, partId: string) {
+  return `${routeForCourse(courseId)}/parts/${encodeURIComponent(partId)}`;
 }
 
-function routeForLesson(lessonId: string) {
-  return `/lessons/${encodeURIComponent(lessonId)}`;
+function routeForModule(courseId: string, moduleId: string) {
+  return `${routeForCourse(courseId)}/modules/${encodeURIComponent(moduleId)}`;
+}
+
+function routeForLesson(courseId: string, lessonId: string) {
+  return `${routeForCourse(courseId)}/lessons/${encodeURIComponent(lessonId)}`;
+}
+
+function routeForDiagrams(courseId: string) {
+  return `${routeForCourse(courseId)}/diagrams`;
+}
+
+function routeForGlossary(courseId: string) {
+  return `${routeForCourse(courseId)}/glossary`;
+}
+
+function routeForCheatSheet(courseId: string) {
+  return `${routeForCourse(courseId)}/cheatsheet`;
 }
 
 export default App;

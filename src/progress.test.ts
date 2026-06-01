@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
-import { courseModules } from "./course";
-import { addCompletedLessonId, isCourseModuleComplete, parseCompletedLessonIds } from "./progress";
+import { courseModules } from "./courses/go";
+import {
+  addCompletedLessonId,
+  isCourseModuleComplete,
+  lessonProgressStorageKey,
+  parseCompletedLessonIds,
+} from "./progress";
 
 describe("lesson progress", () => {
   it("parses stored completed lessons in course order", () => {
@@ -14,6 +19,11 @@ describe("lesson progress", () => {
     expect(parseCompletedLessonIds(null, ["first"])).toEqual([]);
     expect(parseCompletedLessonIds("{", ["first"])).toEqual([]);
     expect(parseCompletedLessonIds(JSON.stringify({ first: true }), ["first"])).toEqual([]);
+  });
+
+  it("scopes stored progress by course id", () => {
+    expect(lessonProgressStorageKey("go")).toBe("learn-go:go:completed-lessons:v1");
+    expect(lessonProgressStorageKey("dsa")).toBe("learn-go:dsa:completed-lessons:v1");
   });
 
   it("only appends valid incomplete lessons", () => {
