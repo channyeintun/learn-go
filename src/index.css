@@ -57,7 +57,8 @@
     "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
     "Courier New", monospace;
 
-  --sidebar-width: 22.75rem;
+  --sidebar-width: 319px;
+  --sidebar-marker-width: 34px;
   --header-height: 4.5rem;
   --color-canvas: #070b14;
   --color-ink: #f8fafc;
@@ -173,9 +174,6 @@
   }
 
   .site-header {
-    position: sticky;
-    top: 0;
-    z-index: 40;
     min-height: var(--header-height);
     border-bottom: 1px solid var(--color-line);
     background: rgba(7, 11, 20, 0.9);
@@ -325,18 +323,18 @@
   }
 
   .sidebar-course-title {
-    min-height: 8.5rem;
-    padding: 1.25rem 1.25rem 1.35rem;
+    min-height: 5.5rem;
+    padding: 1rem 1.1rem;
     border-bottom: 1px solid var(--color-line);
     background:
       linear-gradient(180deg, rgba(8, 18, 34, 0.55), rgba(8, 18, 34, 0.86)), var(--color-paper);
   }
 
   .sidebar-course-title .brand-mark {
-    width: 4rem;
-    height: 4rem;
-    border-radius: 0.9rem;
-    font-size: 1.05rem;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 0.75rem;
+    font-size: 0.9rem;
   }
 
   .sidebar-title {
@@ -363,7 +361,7 @@
 
   .sidebar-module-link {
     display: grid;
-    grid-template-columns: 3.75rem minmax(0, 1fr);
+    grid-template-columns: var(--sidebar-marker-width) minmax(0, 1fr);
     align-items: center;
     min-height: 5.05rem;
     padding: 1rem 1.2rem 1rem 0;
@@ -449,7 +447,7 @@
   .sidebar-lesson-link {
     position: relative;
     display: block;
-    padding: 0.64rem 1.2rem 0.64rem 3.95rem;
+    padding: 0.64rem 1.2rem 0.64rem var(--sidebar-marker-width);
     color: rgba(203, 213, 225, 0.74);
     font-size: 16px;
     font-weight: 900;
