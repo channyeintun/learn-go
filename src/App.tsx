@@ -46,6 +46,12 @@ import {
   runGoSnippet,
   type PlaygroundRunResult,
 } from "./playground";
+import {
+  addCompletedLessonId,
+  isCourseModuleComplete,
+  lessonProgressStorageKey,
+  parseCompletedLessonIds,
+} from "./progress";
 
 SyntaxHighlighter.registerLanguage("go", go);
 
@@ -65,6 +71,8 @@ type LessonRecord = {
   part: CoursePart;
   sequence: number;
 };
+
+type CompleteLessonHandler = (lessonId: string) => void;
 
 type RunState =
   | {
@@ -124,6 +132,7 @@ const idleRunState: RunState = { status: "idle" };
 
 function App() {
   const courseIndex = useMemo(buildCourseIndex, []);
+  const { completedLessonIds, markLessonComplete } = useLessonProgress(courseIndex);
   const location = useLocation();
   const activeModuleId = getActiveModuleId(location.pathname, courseIndex);
 
@@ -159,7 +168,11 @@ function App() {
       </header>
 
       <main className="course-layout">
-        <CourseSidebar courseIndex={courseIndex} activeModuleId={activeModuleId} />
+        <CourseSidebar
+          courseIndex={courseIndex}
+          activeModuleId={activeModuleId}
+          completedLessonIds={completedLessonIds}
+        />
 
         <div className="course-main">
           <MobileCourseIndex courseIndex={courseIndex} activeModuleId={activeModuleId} />
@@ -167,7 +180,12 @@ function App() {
             <Route index element={<OverviewPage courseIndex={courseIndex} />} />
             <Route path="parts/:partId" element={<PartRoute courseIndex={courseIndex} />} />
             <Route path="modules/:moduleId" element={<ModuleRoute courseIndex={courseIndex} />} />
-            <Route path="lessons/:lessonId" element={<LessonRoute courseIndex={courseIndex} />} />
+            <Route
+              path="lessons/:lessonId"
+              element={
+                <LessonRoute courseIndex={courseIndex} onCompleteLesson={markLessonComplete} />
+              }
+            />
             <Route path="diagrams" element={<DiagramsPage />} />
             <Route path="glossary" element={<GlossaryPage />} />
             <Route path="cheatsheet" element={<CheatSheetPage />} />
@@ -177,6 +195,63 @@ function App() {
       </main>
     </div>
   );
+}
+
+function useLessonProgress(courseIndex: CourseIndex) {
+  const orderedLessonIds = useMemo(
+    () => courseIndex.lessonRecords.map((record) => record.lesson.id),
+    [courseIndex],
+  );
+  const validLessonIds = useMemo(() => new Set(orderedLessonIds), [orderedLessonIds]);
+  const [storedCompletedLessonIds, setStoredCompletedLessonIds] = useState(() =>
+    readStoredCompletedLessonIds(orderedLessonIds),
+  );
+  const completedLessonIds = useMemo(
+    () => new Set(storedCompletedLessonIds),
+    [storedCompletedLessonIds],
+  );
+
+  useEffect(() => {
+    writeStoredCompletedLessonIds(storedCompletedLessonIds);
+  }, [storedCompletedLessonIds]);
+
+  const markLessonComplete = useCallback(
+    (lessonId: string) => {
+      setStoredCompletedLessonIds((currentLessonIds) =>
+        addCompletedLessonId(currentLessonIds, lessonId, validLessonIds),
+      );
+    },
+    [validLessonIds],
+  );
+
+  return { completedLessonIds, markLessonComplete };
+}
+
+function readStoredCompletedLessonIds(orderedLessonIds: readonly string[]) {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  try {
+    return parseCompletedLessonIds(
+      window.localStorage.getItem(lessonProgressStorageKey),
+      orderedLessonIds,
+    );
+  } catch {
+    return [];
+  }
+}
+
+function writeStoredCompletedLessonIds(completedLessonIds: readonly string[]) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(lessonProgressStorageKey, JSON.stringify(completedLessonIds));
+  } catch {
+    // Local storage can be unavailable in private mode or strict browser settings.
+  }
 }
 
 function buildCourseIndex(): CourseIndex {
@@ -257,26 +332,35 @@ function ModuleRoute({ courseIndex }: { courseIndex: CourseIndex }) {
   );
 }
 
-function LessonRoute({ courseIndex }: { courseIndex: CourseIndex }) {
+function LessonRoute({
+  courseIndex,
+  onCompleteLesson,
+}: {
+  courseIndex: CourseIndex;
+  onCompleteLesson: CompleteLessonHandler;
+}) {
   const { lessonId } = useParams();
   const record = courseIndex.lessonsById.get(lessonId ?? "");
-  return record ? <LessonPage record={record} courseIndex={courseIndex} /> : <NotFoundPage />;
+  return record ? (
+    <LessonPage record={record} courseIndex={courseIndex} onCompleteLesson={onCompleteLesson} />
+  ) : (
+    <NotFoundPage />
+  );
 }
 
 function CourseSidebar({
   courseIndex,
   activeModuleId,
+  completedLessonIds,
 }: {
   courseIndex: CourseIndex;
   activeModuleId?: string;
+  completedLessonIds: ReadonlySet<string>;
 }) {
   const outlineModules = useMemo(
     () => courseParts.flatMap((part) => courseIndex.modulesByPartId.get(part.id) ?? []),
     [courseIndex],
   );
-  const activeModuleIndex = activeModuleId
-    ? outlineModules.findIndex((courseModule) => courseModule.id === activeModuleId)
-    : -1;
 
   return (
     <aside className="course-sidebar">
@@ -292,7 +376,7 @@ function CourseSidebar({
           <ol className="sidebar-module-list">
             {outlineModules.map((courseModule, moduleIndex) => {
               const isActive = activeModuleId === courseModule.id;
-              const isComplete = activeModuleIndex > moduleIndex;
+              const isComplete = isCourseModuleComplete(courseModule, completedLessonIds);
               const marker = isComplete ? "" : String(moduleIndex + 1);
 
               return (
@@ -302,7 +386,11 @@ function CourseSidebar({
                     isComplete ? "is-complete" : ""
                   }`}
                 >
-                  <Link className="sidebar-module-link" to={routeForModule(courseModule.id)}>
+                  <Link
+                    className="sidebar-module-link"
+                    aria-label={`${courseModule.title}${isComplete ? ", complete" : ""}`}
+                    to={routeForModule(courseModule.id)}
+                  >
                     <span className="sidebar-module-marker" aria-hidden="true">
                       {marker}
                     </span>
@@ -500,7 +588,15 @@ function ModulePage({
   );
 }
 
-function LessonPage({ record, courseIndex }: { record: LessonRecord; courseIndex: CourseIndex }) {
+function LessonPage({
+  record,
+  courseIndex,
+  onCompleteLesson,
+}: {
+  record: LessonRecord;
+  courseIndex: CourseIndex;
+  onCompleteLesson: CompleteLessonHandler;
+}) {
   const previousLesson = courseIndex.lessonRecords[record.sequence - 2];
   const nextLesson = courseIndex.lessonRecords[record.sequence];
   const { lesson } = record;
@@ -573,6 +669,10 @@ function LessonPage({ record, courseIndex }: { record: LessonRecord; courseIndex
   const handleCloseConsole = useCallback(() => {
     setIsConsoleOpen(false);
   }, []);
+
+  const handleCompleteLesson = useCallback(() => {
+    onCompleteLesson(lesson.id);
+  }, [lesson.id, onCompleteLesson]);
 
   const activeRunState = activeSnippetTitle
     ? (snippetRunStates[activeSnippetTitle] ?? idleRunState)
@@ -649,7 +749,11 @@ function LessonPage({ record, courseIndex }: { record: LessonRecord; courseIndex
         </div>
       </section>
 
-      <LessonNavigation previousLesson={previousLesson} nextLesson={nextLesson} />
+      <LessonNavigation
+        previousLesson={previousLesson}
+        nextLesson={nextLesson}
+        onCompleteLesson={handleCompleteLesson}
+      />
       <PlaygroundConsole
         consoleId={consoleId}
         isOpen={isConsoleOpen}
@@ -793,9 +897,11 @@ function ModuleRow({ courseModule }: { courseModule: CourseModule }) {
 function LessonNavigation({
   previousLesson,
   nextLesson,
+  onCompleteLesson,
 }: {
   previousLesson?: LessonRecord;
   nextLesson?: LessonRecord;
+  onCompleteLesson: () => void;
 }) {
   return (
     <nav className="lesson-nav" aria-label="Lesson navigation">
@@ -808,7 +914,7 @@ function LessonNavigation({
         <span />
       )}
       {nextLesson ? (
-        <Link to={routeForLesson(nextLesson.lesson.id)}>
+        <Link to={routeForLesson(nextLesson.lesson.id)} onClick={onCompleteLesson}>
           <span>Next</span>
           {nextLesson.lesson.title}
         </Link>
