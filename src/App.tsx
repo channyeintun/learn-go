@@ -55,6 +55,8 @@ import {
 
 SyntaxHighlighter.registerLanguage("go", go);
 
+const GO_LOGO_URL = "https://go.dev/blog/go-brand/Go-Logo/PNG/Go-Logo_Blue.png";
+
 type CourseIndex = {
   partsById: ReadonlyMap<string, CoursePart>;
   modulesById: ReadonlyMap<string, CourseModule>;
@@ -142,7 +144,9 @@ function App() {
       <header className="site-header">
         <div className="header-inner">
           <Link to="/" className="brand-link header-brand-link">
-            <span className="brand-mark">Go</span>
+            <span className="brand-mark" aria-hidden="true">
+              <img src={GO_LOGO_URL} alt="" />
+            </span>
             <span>
               <span className="brand-title">Learn Go</span>
             </span>
@@ -366,7 +370,9 @@ function CourseSidebar({
     <aside className="course-sidebar">
       <div className="sidebar-scroll">
         <Link to="/" className="sidebar-course-title">
-          <span className="brand-mark">Go</span>
+          <span className="brand-mark" aria-hidden="true">
+            <img src={GO_LOGO_URL} alt="" />
+          </span>
           <span>
             <span className="sidebar-title">Learn Go</span>
           </span>
