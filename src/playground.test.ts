@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vite-plus/test";
-import { formatPlaygroundResult, getRunnableSnippetCode } from "./playground";
+import {
+  formatPlaygroundResult,
+  getRunnableSnippetCode,
+  getSnippetDisplayCode,
+} from "./playground";
 
 describe("playground helpers", () => {
   it("marks complete snippets and package main snippets as runnable", () => {
@@ -40,6 +44,33 @@ fmt.Println(len(text))`,
         title: "Byte length versus rune iteration",
       }),
     ).toContain("package main");
+  });
+
+  it("displays the same code that runnable lesson fragments execute", () => {
+    const snippet = {
+      code: `func counter() func() int {
+    value := 0
+    return func() int {
+        value++
+        return value
+    }
+}`,
+      summary: "",
+      title: "Closure over private state",
+    };
+
+    expect(getSnippetDisplayCode(snippet)).toBe(getRunnableSnippetCode(snippet));
+    expect(getSnippetDisplayCode(snippet)).toContain("fmt.Println");
+  });
+
+  it("displays non-runnable fragments unchanged", () => {
+    const snippet = {
+      code: "value := 42",
+      summary: "",
+      title: "fragment",
+    };
+
+    expect(getSnippetDisplayCode(snippet)).toBe("value := 42");
   });
 
   it("formats compiler errors before runtime output", () => {

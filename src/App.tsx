@@ -40,7 +40,12 @@ import {
   type GlossaryTerm,
   type Lesson,
 } from "./course";
-import { getRunnableSnippetCode, runGoSnippet, type PlaygroundRunResult } from "./playground";
+import {
+  getRunnableSnippetCode,
+  getSnippetDisplayCode,
+  runGoSnippet,
+  type PlaygroundRunResult,
+} from "./playground";
 
 SyntaxHighlighter.registerLanguage("go", go);
 
@@ -759,6 +764,7 @@ function GlossaryLinks({
 
 function ExampleBlock({ snippet }: { snippet: CodeExample }) {
   const runnableCode = getRunnableSnippetCode(snippet);
+  const displayCode = getSnippetDisplayCode(snippet, runnableCode);
   const [runState, setRunState] = useState<RunState>({ status: "idle" });
   const abortRef = useRef<AbortController | null>(null);
   const outputId = useId();
@@ -822,7 +828,7 @@ function ExampleBlock({ snippet }: { snippet: CodeExample }) {
           ) : null}
         </div>
       </div>
-      <CodeBlock code={snippet.code} />
+      <CodeBlock code={displayCode} />
       <PlaygroundOutput outputId={outputId} runState={runState} />
     </section>
   );

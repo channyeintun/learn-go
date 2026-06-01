@@ -41,6 +41,13 @@ export function getRunnableSnippetCode(snippet: CodeExample) {
   return undefined;
 }
 
+export function getSnippetDisplayCode(
+  snippet: CodeExample,
+  runnableCode = getRunnableSnippetCode(snippet),
+) {
+  return runnableCode ?? snippet.code;
+}
+
 export async function runGoSnippet(code: string, signal?: AbortSignal) {
   const response = await fetch(playgroundCompileUrl, {
     body: new URLSearchParams({
