@@ -128,11 +128,11 @@ export const diagrams: DiagramAsset[] = [
   {
     id: "source-file",
     title: "Go Source File Anatomy",
-    alt: "Hand-drawn diagram showing package declaration, imports, constants, functions, and exported versus unexported names in a Go source file.",
+    alt: "Hand-drawn diagram showing package declaration, imports, constants, functions, exported versus unexported names, and source tools such as gofmt, goimports, go test, go vet, staticcheck, and go doc.",
     caption:
-      "A Go file reads top-down: package, imports, declarations, then small functions and methods.",
+      "A Go file reads top-down: package, imports, declarations, then small functions and methods. Source tools format, check, test, and document it.",
     transcript:
-      "The diagram separates package clause, import block, constants, exported symbols, unexported helpers, and main or test entry points.",
+      "The diagram separates package clause, import block, constants, exported symbols, unexported helpers, and main or test entry points. The bottom tool band lists gofmt -w ., goimports -w ., go test ./..., go vet ./..., staticcheck ./..., and go doc mypkg.",
   },
   {
     id: "string-runes",
@@ -261,7 +261,7 @@ export const courseModules: CourseModule[] = [
     level: "beginner",
     title: "Files, Packages, Imports, and Tooling",
     summary:
-      "Start by reading Go the way the toolchain reads it: package first, imports next, declarations after that, and simple commands for running, testing, and documenting code.",
+      "Start by reading Go the way the toolchain reads it: package first, imports next, declarations after that, and simple commands for formatting, testing, checking, and documenting code.",
     prerequisites: ["Basic command-line comfort"],
     outcomes: [
       "Recognize executable versus library packages",
@@ -282,6 +282,7 @@ export const courseModules: CourseModule[] = [
               "A Go source file starts with one package clause. That package boundary is the first design decision: it controls visibility, ownership, and how other code imports the file.",
               "Imports and declarations come next. Uppercase names are exported from the package; lowercase names stay package-local. There is no `private` keyword, so naming is part of the API.",
               "Go also keeps files honest by rejecting unused imports and unused local variables at compile time. These are errors, not warnings. The rule keeps code from accumulating dead dependencies and half-finished local state.",
+              "The daily source loop is deliberately mechanical: `gofmt` normalizes layout, `goimports` fixes imports while formatting, `go test ./...` runs tests, `go vet ./...` reports likely mistakes, `staticcheck ./...` adds deeper static analysis, and `go doc` answers API questions. `goimports` and `staticcheck` are ecosystem tools, so install them separately when a project expects them.",
             ],
           },
         ],
@@ -300,6 +301,16 @@ func main() {
     message := "hello, go"
     fmt.Println(message, build)
 }`,
+          },
+          {
+            title: "Daily source tools",
+            summary: "Use formatters, tests, analyzers, and docs as a normal editing loop.",
+            code: `gofmt -w .
+goimports -w .
+go test ./...
+go vet ./...
+staticcheck ./...
+go doc fmt.Println`,
           },
           {
             title: "Unused local variables and imports fail compilation",
@@ -335,8 +346,9 @@ if err != nil {
         mistakes: [
           "Creating Java-style package hierarchies before responsibilities are clear",
           "Exporting names before callers need them",
-          "Hand-formatting code instead of letting `gofmt` settle layout",
+          "Hand-formatting code instead of letting `gofmt` or `goimports` settle layout and imports",
           "Leaving unused imports or local variables and expecting only a warning",
+          "Skipping `go vet` or `staticcheck` because the code already compiles",
           "Using `_` to hide an error that should be handled",
         ],
         checks: [

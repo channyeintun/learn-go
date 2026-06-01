@@ -476,6 +476,13 @@ function OverviewPage({ courseIndex }: { courseIndex: CourseIndex }) {
         </div>
 
         <p className="fine-print">{courseMeta.targetGoVersionDetail}</p>
+        <p className="fine-print">
+          If this course feels hard to digest, try{" "}
+          <a href="https://go.dev/tour/welcome/1" target="_blank" rel="noreferrer">
+            A Tour of Go
+          </a>{" "}
+          first.
+        </p>
 
         <div className="action-row">
           {firstLesson ? (
