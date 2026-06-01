@@ -2,7 +2,7 @@
 
 ## Goal
 
-Add a second practical course track for data structures and algorithms while keeping the existing Learn Go course intact. Learners should be able to switch courses from the navbar, browse course-specific parts/modules/lessons, and use hand-drawn-style diagrams as the primary teaching aid for abstract structures and algorithm behavior.
+Add a second practical course track for data structures and algorithms while keeping the existing Golang course intact. Learners should be able to switch courses from the navbar, browse course-specific parts/modules/lessons, and use hand-drawn-style diagrams as the primary teaching aid for abstract structures and algorithm behavior.
 
 ## Implementation Plan
 
@@ -24,7 +24,7 @@ Add a second practical course track for data structures and algorithms while kee
    - Part 2: Hashing, Trees, and Priority Queues.
    - Part 3: Graphs and Advanced Problem Patterns.
    - Cover commonly used topics from arrays, linked lists, stacks, queues, hash tables, binary search, sorting, trees, heaps, BFS/DFS, shortest paths, union-find, greedy, dynamic programming, and practical complexity analysis.
-   - Use Go snippets because this repository is a Learn Go app and the playground runner already supports Go.
+   - Use Go snippets because this repository is a Golang app and the playground runner already supports Go.
 
 4. Add hand-drawn-style DSA diagram assets.
    - Generate deterministic bitmap PNG diagrams directly into `src/assets/diagrams`.
@@ -41,4 +41,4 @@ Add a second practical course track for data structures and algorithms while kee
 - The DSA course should be practical rather than theory-first. Analysis sections should teach how to choose between acceptable, risky, and unnecessary approaches for real workloads.
 - Diagrams should stay lightweight, labeled, and inspectable. The images should explain the mental model before the prose adds edge cases.
 - Avoid adding a new syntax highlighter language. DSA examples will use runnable or Go-shaped snippets.
-- Keep the default `/` experience on Learn Go so existing links still feel stable.
+- Keep the default `/` experience on Golang so existing links still feel stable.

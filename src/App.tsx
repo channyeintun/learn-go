@@ -239,7 +239,7 @@ function CourseExperience({ courseIndex }: { courseIndex: CourseIndex }) {
               <img src={GO_LOGO_URL} alt="" />
             </span>
             <span>
-              <span className="brand-title">Learn Go</span>
+              <span className="brand-title">Golang</span>
             </span>
           </Link>
 
@@ -355,7 +355,7 @@ function StaticCourseFrame({ activeCourseId, body }: { activeCourseId: string; b
               <img src={GO_LOGO_URL} alt="" />
             </span>
             <span>
-              <span className="brand-title">Learn Go</span>
+              <span className="brand-title">Golang</span>
             </span>
           </Link>
 
@@ -610,7 +610,7 @@ function CourseSidebar({
             <img src={GO_LOGO_URL} alt="" />
           </span>
           <span>
-            <span className="sidebar-title">Learn Go</span>
+            <span className="sidebar-title">Golang</span>
           </span>
         </Link>
 

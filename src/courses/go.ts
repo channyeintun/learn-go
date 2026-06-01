@@ -307,7 +307,7 @@ if err != nil {
     level: "beginner",
     title: "Values, Operators, Control Flow, Strings, and Runes",
     summary:
-      "Learn Go's compact value model: zero values, typed constants, explicit conversions, one loop keyword, simple switches, and strings as byte sequences.",
+      "Golang's compact value model: zero values, typed constants, explicit conversions, one loop keyword, simple switches, and strings as byte sequences.",
     prerequisites: ["Module 01"],
     outcomes: [
       "Use zero values and constants correctly",
@@ -320,7 +320,7 @@ if err != nil {
         id: "operator-precedence",
         title: "Operator Precedence: What Binds First",
         teachingGoal:
-          "Learn Go's unary operators and five binary precedence levels, then use parentheses where they make intent clearer.",
+          "Golang's unary operators and five binary precedence levels, then use parentheses where they make intent clearer.",
         diagramIds: ["operator-precedence"],
         explanation: [
           {
@@ -2258,7 +2258,7 @@ case <-ctx.Done():
 export const goCourse: CourseContent = {
   meta: {
     id: "go",
-    title: "Learn Go",
+    title: "Golang",
     shortTitle: "Go",
     summary:
       "A practical Go course from source files and values through concurrency, runtime behavior, and production boundaries.",

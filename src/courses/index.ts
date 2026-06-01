@@ -5,7 +5,7 @@ export const defaultCourseId = "go";
 export const courseSummaries = [
   {
     id: "go",
-    title: "Learn Go",
+    title: "Golang",
     shortTitle: "Go",
     summary:
       "A practical Go course from source files and values through concurrency, runtime behavior, and production boundaries.",
